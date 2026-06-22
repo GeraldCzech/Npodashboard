@@ -105,6 +105,11 @@ anonymised OSF **view-only** link only.
 | `combine_posterior.R` | posterior combination | step skipped |
 | Bootstrap routine | `r2_difference_bootstrap()` | S20 CSV not generated |
 
+### Pipeline complete
+All 21 scripts in `R/pipeline/` are supplied. `build_fragebogen()` runs a
+13-step pipeline from raw SoSciSurvey data to `fragebogen.rds` +
+`daten_standardisiert.RData`. The bootstrap CSV is the only remaining gap.
+
 ## Turn this folder into a GitHub repo
 
 ```bash

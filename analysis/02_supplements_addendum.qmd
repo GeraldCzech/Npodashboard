@@ -272,6 +272,47 @@ gt::gt(inv_bo) |>
 #                            ordered=unlist(construct_items_ro))
 ```
 
+# Validation overview
+
+> Run this section interactively with the live `validated` object (produced by
+> `validate_data()` inside `build_fragebogen()`), or render with
+> `rebuild_data: true` so the pipeline runs first.
+
+```{r}
+#| label: validation-overview
+#| eval: false
+# Requires: validated (from build_fragebogen()), config (from settings.R)
+source(here::here("R", "pipeline", "settings.R"))
+source(here::here("R", "pipeline", "validierung_uebersicht.R"))
+# Produces: summary_table (gt) + scorer histogram per questionnaire type
+```
+
+```{r}
+#| label: validation-summary-table
+#| eval: false
+# If validated is already in scope:
+library(dplyr); library(tibble); library(tidyr)
+get_qnr_thresholds <- function(qnr, config) {
+  q_cfg <- config$validation$by_qnr[[qnr]]
+  list(min_valid_ratio      = q_cfg$min_valid_ratio %||% NA,
+       min_duration_q       = q_cfg$min_duration_q  %||% NA,
+       max_duration_mult    = config$validation$global$max_duration_multiplier,
+       min_score            = config$validation$global$min_score)
+}
+validated %>%
+  group_by(QUESTNNR) %>%
+  summarise(n = n(),
+            pct_valid        = round(100*mean(is_valid, na.rm=TRUE), 1),
+            avg_scorer       = round(mean(scorer,       na.rm=TRUE), 2),
+            pct_valid_ratio  = round(100*mean(valid_ratio_score, na.rm=TRUE), 1),
+            pct_duration_ok  = round(100*mean(duration_score,    na.rm=TRUE), 1),
+            pct_alt_flag     = round(100*mean(alt_score < 0,      na.rm=TRUE), 1),
+            .groups = "drop") %>%
+  gt::gt() %>%
+  gt::tab_header("Table S0. Validation summary by questionnaire type",
+                 subtitle = "is_valid threshold: scorer >= 1")
+```
+
 # Deviations from the preregistration {#sec-deviations}
 
 **Registered plan:** *Triple Replication Study*, OSF (pre-analysis, post-survey
