@@ -1,0 +1,15 @@
+project:
+  title: "Charity Brand-Equity Architectures"
+  type: default
+  output-dir: outputs/rendered
+  render:
+    - analysis/01_main_analysis.qmd
+    - analysis/02_supplements_addendum.qmd
+
+format:
+  html:
+    theme: cosmo
+    toc: true
+    number-sections: true
+    df-print: kable
+    embed-resources: true

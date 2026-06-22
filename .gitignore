@@ -1,0 +1,29 @@
+# --- Data: never commit raw or derived survey data (embargoed / identifiable) ---
+data/raw/*
+data/derived/*
+!data/**/README.md
+*.RData
+*.rds
+*.sav
+
+# --- Generated outputs ---
+outputs/csv/*
+outputs/figures/*
+outputs/tables/*
+outputs/syntax/*
+outputs/logs/*
+outputs/rendered/*
+!outputs/**/.gitkeep
+
+# --- R / Quarto cruft ---
+.Rproj.user/
+.Rhistory
+.RData
+.Ruserdata
+*_cache/
+*_files/
+/.quarto/
+
+# --- renv library (keep the lockfile, ignore the library) ---
+renv/library/
+renv/staging/

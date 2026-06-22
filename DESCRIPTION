@@ -1,0 +1,14 @@
+Package: charitybrandequity
+Title: Evidence-Based Comparison of Nonprofit Brand-Equity Architectures
+Version: 0.1.0
+Authors@R: person("Gerald", "Czech", role = c("aut", "cre"))
+Description: Reproducible research compendium for a within-dataset comparison of
+    three nonprofit brand-equity architectures (Faircloth 2005; Boenigk & Becker
+    2016; Rios Romero et al. 2023) using CFA/SEM, with common-method, HTMT,
+    ICC and measurement-invariance diagnostics.
+License: MIT + file LICENSE
+Encoding: UTF-8
+Depends: R (>= 4.2)
+Imports: here, dplyr, tidyr, tibble, purrr, readr, stringr, forcats,
+    lavaan, semTools, psych, lme4, performance, gt, knitr, kableExtra,
+    ggplot2, haven

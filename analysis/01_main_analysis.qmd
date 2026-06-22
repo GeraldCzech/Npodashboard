@@ -1,0 +1,120 @@
+---
+title: "Charity Brand-Equity Architectures: Main Analysis"
+subtitle: "EFA → CFA → SEM comparison of Faircloth, Boenigk & Becker, and Ríos Romero et al."
+# author left blank for double-anonymised submission
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true        # cache expensive SEM fits
+params:
+  primary_estimator: "MLR"      # continuous outcomes / higher-order structural
+  ordinal_estimator: "WLSMV"    # ordinal measurement models
+  primary_amount_outcome: "OF02_02_num_log"     # annual donation (log)
+  secondary_amount_outcome: "OF02_01_num_log"   # most-recent donation (log)
+  binary_outcome: "OF_Spender"                  # donor status
+  ses_mode: "none"              # "none" | "outcome" | "latent_outcome"
+  rebuild_data: false           # TRUE to rebuild fragebogen from raw (needs pipeline)
+---
+
+```{r}
+#| label: setup
+#| include: false
+source(here::here("R", "00_paths.R"))
+source(here::here("R", "01_packages.R"))
+source(here::here("R", "12_lavaan_models.R"))   # model registry (works today)
+source(here::here("R", "20_fit_cfa.R"))
+source(here::here("R", "21_fit_sem.R"))
+source(here::here("R", "40_tables.R"))
+
+# Reproducible context-source selection (avoid heuristic; see R/10_datasets.R)
+# SEM_DEBUG_CONTEXT_SOURCE_NAME <- "fragebogen$qnr1"
+source(here::here("R", "10_datasets.R"))         # builds DATASETS = list(fc,bo,ro,cross)
+stopifnot(exists("DATASETS"))
+```
+
+# Overview
+
+This document reproduces the **main** analysis: measurement quality and
+higher-order structure for the three architectures, and their criterion-related
+evidence against donation outcomes. Diagnostics (HTMT, CMV, ICC, invariance,
+deviations, robustness) live in `02_supplements_addendum.qmd`.
+
+Datasets in `DATASETS`: `fc`, `bo`, `ro`, `cross`. Outcomes:
+`r params$primary_amount_outcome` (primary), `r params$secondary_amount_outcome`,
+`r params$binary_outcome`.
+
+# Sample and data audit
+
+```{r}
+#| label: dataset-audit
+audit <- readr::read_csv(file.path(CSV_DIR, "01_dataset_audit.csv"),
+                         show_col_types = FALSE)
+gt::gt(audit) |> gt::tab_header("Dataset registry audit")
+```
+
+# Confirmatory factor analysis
+
+```{r}
+#| label: cfa-fits
+cfa_specs <- list(
+  fc_higher = list(syntax = cfa_fc_higher_order_original(), data = DATASETS$fc),
+  fc_coreB  = list(syntax = cfa_fc_core_B(),                 data = DATASETS$fc),
+  bo        = list(syntax = cfa_bo_original(),               data = DATASETS$bo),
+  ro        = list(syntax = cfa_ro_original(),               data = DATASETS$ro)
+)
+
+cfa_fit_tbl <- purrr::imap_dfr(cfa_specs, function(s, id) {
+  fit <- fit_cfa(s$syntax, s$data, estimator = params$ordinal_estimator,
+                 model_id = id)
+  tidy_fit(fit, model_id = id, estimator = params$ordinal_estimator)
+})
+save_table(cfa_fit_tbl, "paper_table_cfa_fit")
+gt_fit_summary(cfa_fit_tbl, "CFA fit by architecture")
+```
+
+# Structural models and explained variance
+
+```{r}
+#| label: sem-fits
+sem_specs <- list(
+  fc = list(builder = sem_fc_original, data = DATASETS$fc),
+  bo = list(builder = sem_bo_original, data = DATASETS$bo),
+  ro = list(builder = sem_ro_original, data = DATASETS$ro)
+)
+outcomes <- c(params$primary_amount_outcome,
+              params$secondary_amount_outcome,
+              params$binary_outcome)
+
+sem_r2_tbl <- purrr::imap_dfr(sem_specs, function(s, id) {
+  purrr::map_dfr(outcomes, function(oc) {
+    is_binary <- identical(oc, params$binary_outcome)
+    fit <- fit_sem(s$builder, s$data, outcome = oc, ses_mode = params$ses_mode,
+                   estimator = if (is_binary) params$ordinal_estimator else params$primary_estimator,
+                   ordered = if (is_binary) oc else NULL,
+                   model_id = paste0(id, "_", oc))
+    sem_paths_r2(fit, outcome = oc, model_id = paste0(id, "_", oc))
+  })
+})
+save_table(sem_r2_tbl, "paper_table_structural_paths_r2")
+gt::gt(sem_r2_tbl) |> gt::tab_header("Structural paths and R² (identical-case discipline applies; see supplement)")
+```
+
+> **Note on comparability.** Model-specific samples differ; the directly
+> comparable evidence is the identical-case analysis (see supplement §Sampling).
+> R² across non-equivalent solutions is indicative only.
+
+# Session info {.unnumbered}
+
+```{r}
+#| label: sessioninfo
+sessionInfo()
+```

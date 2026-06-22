@@ -1,0 +1,154 @@
+---
+title: "Supplementary Material & Addendum"
+subtitle: "CMV, HTMT, ICC, invariance, deviations from preregistration, robustness"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    df-print: kable
+    embed-resources: true
+  pdf:
+    toc: true
+    number-sections: true
+execute:
+  echo: true
+  warning: false
+  message: false
+params:
+  primary_estimator: "MLR"
+  ordinal_estimator: "WLSMV"
+  cmv_min_items: 6
+  run_clf: false        # latent common-method-factor (may not converge for parsimonious models)
+---
+
+```{r}
+#| label: setup
+#| include: false
+source(here::here("R", "00_paths.R"))
+source(here::here("R", "01_packages.R"))
+source(here::here("R", "12_lavaan_models.R"))
+source(here::here("R", "30_diagnostics_htmt.R"))
+source(here::here("R", "31_diagnostics_cmv.R"))
+source(here::here("R", "32_diagnostics_icc.R"))
+source(here::here("R", "33_invariance.R"))
+source(here::here("R", "10_datasets.R"))
+stopifnot(exists("DATASETS"))
+
+# Construct -> item maps (edit to match the registry in 12_lavaan_models.R).
+construct_items_bo <- list(
+  BO_TR = c("B101_01","B101_02","B101_03"),
+  BO_CO = c("B102_01","B102_02","B102_03")
+)
+# construct_items_fc <- list(...)   # fill from cfa_fc_* loadings
+# construct_items_ro <- list(...)   # fill from cfa_ro_original() loadings
+```
+
+# Sampling and non-independence
+
+```{r}
+#| label: icc
+#| eval: false
+# ICC for the cross-classified structure (needs an organisation id column).
+icc_crossed(DATASETS$cross, response = "OF02_02_num_log",
+            group1 = "REF", group2 = "organisation")
+```
+
+# Discriminant validity (HTMT)
+
+```{r}
+#| label: htmt-bo
+htmt_bo <- htmt_manual(DATASETS$bo, construct_items_bo)
+save_table <- function(t, n) { readr::write_csv(t, file.path(CSV_DIR, paste0(n, ".csv")), na=""); t }
+save_table(htmt_bo, "S_htmt_boenigk")
+gt::gt(htmt_bo) |> gt::tab_header("Boenigk HTMT (trust × commitment)")
+```
+
+```{r}
+#| label: htmt-fc-ro
+#| eval: false
+# htmt_fc <- htmt_manual(DATASETS$fc, construct_items_fc)
+# htmt_ro <- htmt_manual(DATASETS$ro, construct_items_ro)
+# Expect: Romero shows >.90 problems (e.g. RO_BA–RO_BD, RO_BF–RO_BS, RO_BD–RO_BR).
+```
+
+# Common method variance
+
+```{r}
+#| label: cmv-harman
+#| eval: false
+harman_single_factor(DATASETS$bo, items = unlist(construct_items_bo),
+                     label = "Boenigk Core Architecture")
+# Expect ~ Boenigk 68.8% (problematic), Faircloth 38.5% (acceptable), Romero 50.5%.
+```
+
+```{r}
+#| label: cmv-cfa
+#| eval: false
+cmv_cfa_comparison(
+  trait_model = cfa_bo_original(),
+  data = DATASETS$bo,
+  items = unlist(construct_items_bo),
+  estimator = params$ordinal_estimator,
+  ordered = unlist(construct_items_bo),
+  run_clf = params$run_clf
+)
+# Expect: single-factor fits far worse than theoretical (e.g. CFI .997 vs .414);
+# CLF may fail to converge for the parsimonious Boenigk model.
+```
+
+# Multi-group invariance (donor vs non-donor)
+
+```{r}
+#| label: invariance
+#| eval: false
+invariance_steps(cfa_bo_original(), DATASETS$bo, group = "OF_Spender",
+                 estimator = params$ordinal_estimator,
+                 ordered = unlist(construct_items_bo))
+# Expect Boenigk near-invariant; Faircloth/Romero segment-sensitive.
+```
+
+# Deviations from the preregistration
+
+**Registered plan:** *Triple Replication Study*, OSF (pre-analysis, post-survey
+registration; data collected May–July 2025, registered before analysis). The
+analysis plan was fixed before any model estimation. The registration governs the
+replication of a single higher-order path (Brand Equity → Donation Intention);
+this manuscript reuses the same data for a measurement-defensibility comparison
+and is a largely exploratory re-framing. Deviations are reported transparently
+with justification (Bekkers et al., 2025).
+
+| # | Registered plan | As implemented | Type | Rationale |
+|---|---|---|---|---|
+| 1 | Estimator: MLR primary; WLSMV robustness check. | WLSMV primary for ordinal measurement models; robust ML for continuous outcomes. | Justified deviation | WLSMV is appropriate for ordinal Likert indicators. |
+| 2 | EFA: PAF + varimax. | Polychoric + OLS (`psych::fa`); parallel analysis / VSS. | Justified deviation | Correct treatment for ordinal data. |
+| 3 | Discriminant validity not specified; comparison via adj. R², ΔCFI/TLI, AIC/BIC. | HTMT added as primary discriminant criterion. | Exploratory addition | Romero overlap (max HTMT ≈ .96) is exploratory. |
+| 4 | Outcome: Brand Equity → Donation Intention (β ≈ .40–.60). | Realised giving (most-recent; annual, log) + binary donor status; intention reserved. | Different/expanded outcomes | Dashboard question concerns behavioural outcomes. |
+| 5 | Exclusion: > 60% missing. | 80% / 90% completeness thresholds. | Justified deviation (stricter) | More conservative analytic sample. |
+| 6 | Predictive-validity replication of one higher-order path. | Architecture-level comparison → layered dashboard. | Exploratory re-framing | Extends beyond the registered replication. |
+
+**Consistent with the registration:** Austrian online survey, May–July 2025; >20-organisation design; constructive-replication logic; power rationale (≥500/model; Wolf et al., 2013); joint CFI/TLI/RMSEA/SRMR thresholds; multi-group reliability/validity across donor segments.
+
+# Robustness
+
+```{r}
+#| label: robustness
+#| eval: false
+# SES-adjusted structural models (ses_mode = "outcome") vs primary (ses_mode = "none").
+# Alternative structures: cfa_fc_core_B(), cfa_fc_purified_A().
+```
+
+# Session info {.unnumbered}
+
+```{r}
+#| label: sessioninfo
+sessionInfo()
+```
+
+# References {.unnumbered}
+
+Bekkers, R., Chapman, C. M., Prosser, A. M. B., Wiepking, P., & Meyer, M. (2025).
+Let us be clear: Why and how to demonstrate data and methods transparency in
+nonprofit research. *VOLUNTAS, 36*(4), 473–482.
+https://doi.org/10.1007/s11266-025-00736-0
