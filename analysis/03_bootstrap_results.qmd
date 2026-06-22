@@ -1,0 +1,56 @@
+---
+title: "Table S11 — R² Difference Bootstrap"
+subtitle: "Render this document only after run_bootstrap.R has completed"
+date: today
+format:
+  html:
+    embed-resources: true
+    df-print: kable
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r}
+#| label: setup
+source(here::here("R", "00_paths.R"))
+suppressPackageStartupMessages(library(dplyr))
+suppressPackageStartupMessages(library(gt))
+```
+
+```{r}
+#| label: check-csv
+boot_csv <- file.path(CSV_DIR, "supplements",
+                      "S20_r2_difference_bootstrap_all_levels.csv")
+if (!file.exists(boot_csv)) {
+  stop("Bootstrap CSV not found: ", boot_csv,
+       "\nRun:  Rscript run_bootstrap.R   (from the repo root)")
+}
+boot_tbl <- readr::read_csv(boot_csv, show_col_types = FALSE)
+```
+
+Paired nonparametric bootstrap of pairwise $\Delta R^2$ differences between
+architectures on the identical-case common-case sample.
+`r unique(boot_tbl$B_target)` replicates; MLR+FIML for continuous outcomes,
+WLSMV+probit for donor status; admissible solutions only (converged, no Heywood
+cases); 95 % percentile CI + bias-corrected CI; Holm adjustment per outcome.
+
+```{r}
+#| label: table-s11
+boot_tbl |>
+  select(Outcome, Model_A, Model_B, R2_A, R2_B,
+         Delta_R2, CI_low, CI_high, p_value, p_holm, B, conv_rate) |>
+  mutate(across(where(is.numeric), ~ round(.x, 3))) |>
+  gt() |>
+  tab_header(
+    "Table S11. Bootstrap ΔR² between brand-equity architectures",
+    subtitle = "Identical-case sample; 95 % percentile CI; Holm-adjusted p"
+  ) |>
+  fmt_number(columns = c(R2_A, R2_B, Delta_R2, CI_low, CI_high),
+             decimals = 3) |>
+  fmt_number(columns = c(p_value, p_holm), decimals = 3) |>
+  fmt_number(columns = conv_rate, decimals = 2) |>
+  sub_missing(missing_text = "—") |>
+  tab_footnote("Model_A / Model_B: bo_original = Boenigk & Becker; fc_core_B = Faircloth Core B; ro_original = Ríos Romero et al.")
+```
