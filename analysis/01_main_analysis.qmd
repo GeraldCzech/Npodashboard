@@ -95,6 +95,7 @@ gt_fit_summary(cfa_fit_tbl, "CFA fit by architecture")
 
 ```{r}
 #| label: sem-fits
+#| cache: false
 sem_specs <- list(
   fc = list(builder = sem_fc_original, data = DATASETS$fc),
   bo = list(builder = sem_bo_original, data = DATASETS$bo),
