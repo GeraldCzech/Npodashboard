@@ -11,6 +11,26 @@ invariance_steps <- function(model, data, group = "OF_Spender",
   d <- data[!is.na(data[[group]]), , drop = FALSE]
   d[[group]] <- as.factor(d[[group]])
 
+  # Guard: WLSMV fails when any ordered item has an empty category in a group.
+  # Detect and fall back to MLR if found.
+  if (!is.null(ordered)) {
+    ord_items <- intersect(ordered, names(d))
+    groups    <- levels(d[[group]])
+    has_empty <- any(sapply(ord_items, function(v) {
+      any(sapply(groups, function(g) {
+        x  <- d[[v]][d[[group]] == g]
+        ux <- sort(unique(d[[v]]))
+        any(table(factor(x, levels = ux)) == 0L)
+      }))
+    }))
+    if (has_empty) {
+      warning("invariance_steps(): empty category in at least one group — ",
+              "falling back to estimator = 'MLR' (continuous).")
+      estimator <- "MLR"
+      ordered   <- NULL
+    }
+  }
+
   cfg <- lavaan::cfa(model, data = d, group = group, estimator = estimator,
                      ordered = ordered)
   met <- lavaan::cfa(model, data = d, group = group, estimator = estimator,

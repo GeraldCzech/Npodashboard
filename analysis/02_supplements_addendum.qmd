@@ -241,14 +241,15 @@ gt::gt(cmv_ro) |>
 
 ```{r}
 #| label: invariance-bo
-inv_bo <- invariance_steps(
+#| error: true
+inv_bo <- tryCatch(invariance_steps(
   model      = cfa_bo_original(),
   data       = DATASETS$bo,
   group      = "OF_Spender",
   estimator  = params$ordinal_estimator,
   ordered    = unlist(construct_items_bo)
-)
-save_t(inv_bo, "S_invariance_boenigk")
+), error = function(e) { message("invariance-bo failed: ", e$message); NULL })
+if (!is.null(inv_bo)) save_t(inv_bo, "S_invariance_boenigk")
 gt::gt(inv_bo) |>
   gt::tab_header("Table S10a. Measurement invariance — Boenigk (donor vs non-donor)",
                  subtitle = "Chen (2007): metric/scalar supported if ΔCFI ≥ −.010") |>
