@@ -32,6 +32,7 @@ params:
 source(here::here("R", "00_paths.R"))
 source(here::here("R", "01_packages.R"))
 source(here::here("R", "12_lavaan_models.R"))   # model registry (works today)
+source(here::here("R", "11_fit_helpers.R"))   # SEM_REGISTRY, coerce_sem_data(), ordered_vars_for_estimator()
 source(here::here("R", "20_fit_cfa.R"))
 source(here::here("R", "21_fit_sem.R"))
 source(here::here("R", "40_tables.R"))
@@ -105,11 +106,11 @@ outcomes <- c(params$primary_amount_outcome,
 
 sem_r2_tbl <- purrr::imap_dfr(sem_specs, function(s, id) {
   purrr::map_dfr(outcomes, function(oc) {
-    is_binary <- identical(oc, params$binary_outcome)
+    is_binary <- is_binary_outcome(oc, s$data)   # from 11_fit_helpers.R
     fit <- fit_sem(s$builder, s$data, outcome = oc, ses_mode = params$ses_mode,
                    estimator = if (is_binary) params$ordinal_estimator else params$primary_estimator,
-                   ordered = if (is_binary) oc else NULL,
                    model_id = paste0(id, "_", oc))
+    # ordered= handled inside fit_sem via ordered_vars_for_estimator()
     sem_paths_r2(fit, outcome = oc, model_id = paste0(id, "_", oc))
   })
 })

@@ -11,15 +11,34 @@
 fit_sem <- function(sem_builder, data, outcome, ses_mode = "none",
                     estimator = "MLR", ordered = NULL, model_id = NA_character_) {
   syntax <- sem_builder(outcome = outcome, ses_mode = ses_mode, dat = data)
+
+  # Coerce data types (OF_Spender logical -> 0L/1L, log-outcomes as numeric)
+  if (exists("coerce_sem_data", mode = "function")) {
+    data <- coerce_sem_data(data)
+  }
+
+  # For WLSMV: ordered= should list the Likert indicators from the model syntax,
+  # not the outcome. Use ordered_vars_for_estimator() from 11_fit_helpers.R if
+  # available; otherwise keep whatever was passed.
+  if (is_wls_estimator_local(estimator) && exists("ordered_vars_for_estimator", mode = "function")) {
+    ordered <- ordered_vars_for_estimator(estimator, syntax, data)
+  }
+
+  missing_method <- if (is_wls_estimator_local(estimator)) "pairwise" else "fiml"
+
   if (!is.na(model_id)) {
     writeLines(syntax,
                file.path(SYNTAX_DIR, sprintf("sem_%s_%s.lav", model_id, estimator)))
   }
   tryCatch(
     lavaan::sem(syntax, data = data, estimator = estimator, ordered = ordered,
-                missing = if (estimator == "MLR") "fiml" else "pairwise",
-                std.lv = TRUE),
+                missing = missing_method, std.lv = TRUE),
     error = function(e) e)
+}
+
+# Local helper — avoids hard dependency on 11_fit_helpers.R
+is_wls_estimator_local <- function(est) {
+  toupper(est) %in% c("WLSMV","WLS","WLSM","DWLS","ULS")
 }
 
 # Standardised structural path(s) + R2 for the outcome
