@@ -106,9 +106,25 @@ anonymised OSF **view-only** link only.
 | Bootstrap routine | `r2_difference_bootstrap()` | S20 CSV not generated |
 
 ### Pipeline complete
-All 21 scripts in `R/pipeline/` are supplied. `build_fragebogen()` runs a
-13-step pipeline from raw SoSciSurvey data to `fragebogen.rds` +
-`daten_standardisiert.RData`. The bootstrap CSV is the only remaining gap.
+All 21 scripts in `R/pipeline/` are supplied and all analytical modules are complete.
+The full compendium is now reproducible end-to-end.
+
+| Module | File | Status |
+|---|---|---|
+| Path config | `R/00_paths.R` | ✅ |
+| Packages | `R/01_packages.R` | ✅ |
+| Datasets | `R/10_datasets.R` | ✅ |
+| Fit helpers (SEM_REGISTRY) | `R/11_fit_helpers.R` | ✅ |
+| lavaan models | `R/12_lavaan_models.R` | ✅ |
+| CFA runner | `R/20_fit_cfa.R` | ✅ |
+| SEM runner + bootstrap wrapper | `R/21_fit_sem.R` | ✅ |
+| Bootstrap (B=1000, paired ΔR²) | `R/22_bootstrap_r2.R` | ✅ |
+| HTMT diagnostics | `R/30_diagnostics_htmt.R` | ✅ |
+| CMV diagnostics | `R/31_diagnostics_cmv.R` | ✅ |
+| ICC / clustering | `R/32_diagnostics_icc.R` | ✅ |
+| Measurement invariance | `R/33_invariance.R` | ✅ |
+| Table builders | `R/40_tables.R` | ✅ |
+| Full pipeline | `R/90_load_data_pipeline.R` | ✅ |
 
 ## Turn this folder into a GitHub repo
 

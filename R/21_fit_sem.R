@@ -40,11 +40,51 @@ sem_paths_r2 <- function(fit, outcome, model_id = NA_character_) {
 }
 
 # ------------------------------------------------------------------------------
-# TODO (send script): R2-difference bootstrap across models / outcomes.
-# Legacy artifact: outputs/sem_debug/supplements/S20_r2_difference_bootstrap.csv
-# Port your bootstrap routine here so it writes to file.path(CSV_DIR, "S20_...").
+# r2_difference_bootstrap()
+# Thin wrapper around R/22_bootstrap_r2.R (reviewer-grade paired nonparametric
+# bootstrap of pairwise ΔR² between architectures).
+#
+# Configure via environment before calling:
+#   BOOT_B        <- 1000L            # number of replicates
+#   BOOT_SEED     <- 20260602L        # reproducibility seed
+#   BOOT_MODELS   <- c("bo_original","fc_core_B","ro_original")
+#   BOOT_OUTCOMES <- c("OF02_01_num_log","OF02_02_num_log","OF_Spender")
+#   BOOT_NCORES   <- parallel::detectCores() - 1L
+#   BOOT_BCA      <- FALSE            # BCa off by default (slow jackknife)
+#
+# Results are written to outputs/csv/supplements/S20_r2_difference_bootstrap_*.csv
+# and returned invisibly as a list(summary = <tibble>, long = <tibble>).
 # ------------------------------------------------------------------------------
-r2_difference_bootstrap <- function(...) {
-  stop("r2_difference_bootstrap(): port the legacy bootstrap routine here. ",
-       "See README 'Scripts still needed'.")
+r2_difference_bootstrap <- function(
+    B       = 1000L,
+    seed    = 20260602L,
+    models  = c("bo_original", "fc_core_B", "ro_original"),
+    outcomes = c("OF02_01_num_log", "OF02_02_num_log", "OF_Spender"),
+    ncores  = max(1L, parallel::detectCores() - 1L),
+    bca     = FALSE,
+    ordered_items = FALSE
+) {
+  # Set configuration variables that 22_bootstrap_r2.R reads via get0()
+  BOOT_B             <<- as.integer(B)
+  BOOT_SEED          <<- as.integer(seed)
+  BOOT_MODELS        <<- models
+  BOOT_OUTCOMES      <<- outcomes
+  BOOT_NCORES        <<- as.integer(ncores)
+  BOOT_BCA           <<- bca
+  BOOT_ORDERED_ITEMS <<- ordered_items
+
+  message("Starting R² difference bootstrap (B=", B, ", models: ",
+          paste(models, collapse=", "), ")...")
+  source(here::here("R", "22_bootstrap_r2.R"), encoding = "UTF-8", local = FALSE)
+
+  # Collect outputs written by the script
+  supp_dir <- file.path(CSV_DIR, "supplements")
+  summary_file <- file.path(supp_dir, "S20_r2_difference_bootstrap_all_levels.csv")
+  long_file    <- file.path(supp_dir, "S20_r2_difference_bootstrap_long_r2.csv")
+
+  result <- list(
+    summary = if (file.exists(summary_file)) readr::read_csv(summary_file, show_col_types = FALSE) else NULL,
+    long    = if (file.exists(long_file))    readr::read_csv(long_file,    show_col_types = FALSE) else NULL
+  )
+  invisible(result)
 }

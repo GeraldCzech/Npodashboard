@@ -313,6 +313,53 @@ validated %>%
                  subtitle = "is_valid threshold: scorer >= 1")
 ```
 
+# R² difference bootstrap (S20)
+
+Paired nonparametric bootstrap of pairwise ΔR² differences between architectures
+on the identical-case common-case sample (n = 266 / 186 respondents).
+B = 1,000 replicates; MLR+FIML for continuous outcomes, WLSMV+probit for donor
+status; admissible solutions only (converged, no Heywood); 95% percentile CI +
+bias-corrected CI; Holm adjustment per outcome family.
+
+```{r}
+#| label: bootstrap-run
+#| eval: false
+#| cache: true
+# Run the bootstrap (takes ~30-60 min on 4 cores):
+source(here::here("R", "21_fit_sem.R"))
+boot_result <- r2_difference_bootstrap(
+  B        = 1000L,
+  models   = c("bo_original", "fc_core_B", "ro_original"),
+  outcomes = c("OF02_01_num_log", "OF02_02_num_log", "OF_Spender"),
+  ncores   = 4L
+)
+```
+
+```{r}
+#| label: bootstrap-table
+#| eval: false
+# Read from cached CSV (if bootstrap has been run previously):
+boot_csv <- file.path(CSV_DIR, "supplements", "S20_r2_difference_bootstrap_all_levels.csv")
+if (file.exists(boot_csv)) {
+  boot_tbl <- readr::read_csv(boot_csv, show_col_types = FALSE)
+  boot_tbl |>
+    dplyr::select(Outcome, Model_A, Model_B, R2_A, R2_B, Delta_R2, Delta_R2_pp,
+                  CI_low, CI_high, p_value, p_holm, B, conv_rate) |>
+    dplyr::mutate(dplyr::across(where(is.numeric), ~ round(.x, 3))) |>
+    gt::gt() |>
+    gt::tab_header(
+      "Table S11. Bootstrap ΔR² between brand-equity architectures",
+      subtitle = "Paired case bootstrap on identical-case sample; 95% percentile CI; Holm-adjusted p"
+    ) |>
+    gt::fmt_number(columns = c(R2_A, R2_B, Delta_R2, CI_low, CI_high), decimals = 3) |>
+    gt::fmt_percent(columns = Delta_R2_pp, decimals = 1) |>
+    gt::fmt_number(columns = c(p_value, p_holm), decimals = 3) |>
+    gt::sub_missing(missing_text = "—")
+} else {
+  message("Bootstrap CSV not found. Run the bootstrap-run chunk first.")
+}
+```
+
 # Deviations from the preregistration {#sec-deviations}
 
 **Registered plan:** *Triple Replication Study*, OSF (pre-analysis, post-survey
