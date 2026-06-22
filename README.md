@@ -72,29 +72,38 @@ that could re-identify partner organisations or respondents (organisation names,
 SES detail, free-text, exact amounts where risky). For peer review, share the
 anonymised OSF **view-only** link only.
 
-## Scripts still needed (you will supply incrementally)
+## Pipeline status
 
-These complete `R/90_load_data_pipeline.R` (RAW → fragebogen). Drop them under
-`R/pipeline/` keeping the legacy names:
+### ✅ Supplied and wired (17 scripts in `R/pipeline/`)
 
-- data: `external_Sources.R`, `load_data.R`, `validate_data.R`,
-  `split_validated_data.R`, `recode_reversed_items.R`,
-  `attach_sociodemographics.R`, `berechne_alle_skalen.R`,
-  `merge_awareness_data.R`, `combine_posterior.R`
-- extract: `join_followup_questionnaires.R`, `extract_donation_data.R`,
-  `join_followup_fallbacks.R`, `extract_spendenbetrag.R`,
-  `extract_start_awareness_org.R`
-- modules: `match_org_code.R`, `z_standardisieren.R`, `awareness_utils.R`,
-  `run_cfa.R`, `cfa_model_builder.R`, `io_utils.R`, `analysis_container.R`
-- analysis: `efa_analysis.R`, `cfa_analysis.R`, `summarize_cfa_results.R`,
-  `run_sem_analysis.R`, `run_sem_model.R`, `run_sem_model_template.R`
-- diagnostics: `valid_bayes_score.R`
-- export: `save_outputs.R`, `export_cfa_report.R`
-- `config/settings.R`, `scripts/packages.R`
+| Script | Provides |
+|---|---|
+| `external_Sources.R` | `org_synonyme` (26 NPOs + fuzzy synonyms), `fields`, `skalen`, `skalen_SEM`, `zielvariablen`, `source_links`, `at03_labels` |
+| `settings.R` | `config` (validation thresholds, EFA params, output paths; API URL via env var) |
+| `load_data.R` | `load_data()` (API/sav/rds/csv) |
+| `validate_data.R` | `validate_data()`, `detect_alternating()` |
+| `split_validated_data.R` | `split_validated_data()` → start01/qnr1/qnr2/qnr4/qnr5 |
+| `recode_reversed_items.R` | `recode_reversed_items()`, `reverse_specific_items()`, `drop_avector()` |
+| `berechne_alle_skalen.R` | `berechne_skalen_rekursiv()` |
+| `extract_awareness_org.R` | `extract_start_awareness()` v1 (exact match, overwritten by v2) |
+| `extract_start_awareness_org.R` | `extract_start_awareness()` v2 (fuzzy), `get_start_awareness_data()` |
+| `merge_awareness_data.R` | `merge_awareness_data()` → TOM/SAW/BA_A/BA_T into qnr1/qnr2 |
+| `extract_donation_data.R` | `extract_donation_data()` → OF_Spender, OF_last, OF_2024 |
+| `extract_spendenbetrag.R` | `extract_spendenbetrag()`, `extract_spenden_from_columns()`, `spenden_kategorien()`, `spenden_kategorien1()` |
+| `join_followup_questionnaires.R` | `join_followup_cross_questionnaires()` → fragebogen\$cross; `harmonize_df()` |
+| `join_followup_fallbacks.R` | `combine_main_questionnaires_with_supplements()` → fragebogen\$FC_BO / \$RO |
+| `attach_sociodemographics.R` | `attach_sociodemographics()` → SD01/03/11/14/16/21 + EW02_* |
+| `fields.R` | shim sourcing external_Sources.R |
+| `skalen_liste.R` | exposes `skalen_SEM` as `skalen_liste` |
 
-Also useful: the R²-difference bootstrap routine (→ `R/21_fit_sem.R`,
-`r2_difference_bootstrap()`), and the construct→item maps for Faircloth and
-Romero (→ HTMT/CMV chunks in the supplement).
+### ⏳ Still needed
+
+| Script | Provides | Impact if absent |
+|---|---|---|
+| `awareness_utils.R` | `add_awareness()`, `z_standardisieren()` | awareness on full frame skipped (fallback: per-qnr) |
+| `valid_bayes_score.R` | `bayes_valid_score()` | Bayes scoring skipped |
+| `combine_posterior.R` | posterior combination | step skipped |
+| Bootstrap routine | `r2_difference_bootstrap()` | S20 CSV not generated |
 
 ## Turn this folder into a GitHub repo
 
