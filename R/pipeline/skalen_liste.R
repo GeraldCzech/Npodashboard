@@ -1,18 +1,14 @@
 # ==============================================================================
-# R/pipeline/skalen_liste.R  —  Scale definition list for berechne_skalen_rekursiv()
+# R/pipeline/skalen_liste.R  —  Scale definitions
 # ==============================================================================
-# STATUS: STUB — supply the real version.
-# Must define `skalen_liste`, a named list where each entry maps a scale name
-# to the vector of its constituent items or sub-scales.
-# Example (adapt to actual item names):
-#
-# skalen_liste <- list(
-#   BO_TR = c("B101_01", "B101_02", "B101_03"),
-#   BO_CO = c("B102_01", "B102_02", "B102_03"),
-#   BO_BE = c("BO_TR", "BO_CO"),
-#   FC_BR = c("FC01_01", "FC01_02", "FC01_03"),
-#   ...
-# )
+# skalen and skalen_SEM are defined in external_Sources.R (lines 97-141).
+# This file exposes them under the name expected by berechne_skalen_rekursiv().
 # ==============================================================================
-message("⚠️  R/pipeline/skalen_liste.R is a stub — scale definitions not yet supplied.")
-if (!exists("skalen_liste")) skalen_liste <- list()
+if (!exists("skalen")) {
+  source(here::here("R", "pipeline", "external_Sources.R"))
+}
+# berechne_skalen_rekursiv() uses skalen_liste as its argument.
+# Use skalen_SEM (includes meta-scales / higher-order composites).
+skalen_liste <- skalen_SEM
+message("skalen_liste ready: ", length(skalen_liste), " scales defined (",
+        paste(names(skalen_liste), collapse=", "), ")")

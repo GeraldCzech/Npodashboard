@@ -1,23 +1,13 @@
 # ==============================================================================
 # R/pipeline/fields.R  —  QUESTNNR → column field definitions
 # ==============================================================================
-# STATUS: STUB — supply the real version.
-# This file must define `fields`, a named list mapping each QUESTNNR type to
-# a character vector of column names to keep in split_validated_data().
-# Example structure (replace with actual column lists from SoSciSurvey export):
-#
-# fields <- list(
-#   start01 = c("CASE", "STARTED", "FINISHED", "LASTDATA", "QUESTNNR",
-#               "BA03_01", "BA03_02", <sociodemographic cols...>),
-#   qnr1    = c("REF", "CASE", "STARTED", "QUESTNNR", "BA03_01",
-#               "FC01_01", "FC01_02", ..., "B101_01", ..., "OF02_01", ...),
-#   qnr2    = c("REF", "CASE", "STARTED", "QUESTNNR", "BA03_01",
-#               "R201_01", ..., "OF02_01", ...),
-#   qnr4    = c("REF", "CASE", "STARTED", "QUESTNNR", <cross-model cols...>),
-#   qnr5    = c("REF", "CASE", "STARTED", "QUESTNNR", <follow-up cols...>)
-# )
-#
-# Or use NULL per type to keep all columns (split_validated_data uses any_of()).
+# fields is defined in external_Sources.R (lines 55-80) and sourced from there
+# in build_fragebogen(). This file just ensures fields is available if someone
+# sources fields.R directly without going through the full pipeline.
 # ==============================================================================
-message("⚠️  R/pipeline/fields.R is a stub — fields definition not yet supplied.")
-if (!exists("fields")) fields <- list(start01=NULL, qnr1=NULL, qnr2=NULL, qnr4=NULL, qnr5=NULL)
+if (!exists("fields")) {
+  source(here::here("R", "pipeline", "external_Sources.R"))
+}
+stopifnot(is.list(fields), all(c("start01","qnr1","qnr2","qnr4","qnr5") %in% names(fields)))
+message("fields loaded: ", paste(names(fields), collapse=", "),
+        " (", sum(sapply(fields, length)), " total columns defined)")

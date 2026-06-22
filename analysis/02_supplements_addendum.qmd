@@ -19,8 +19,7 @@ execute:
 params:
   primary_estimator: "MLR"
   ordinal_estimator: "WLSMV"
-  cmv_min_items: 6
-  run_clf: false        # latent common-method-factor (may not converge for parsimonious models)
+  run_clf: false        # latent common-method-factor (may not converge for Boenigk)
 ---
 
 ```{r}
@@ -33,26 +32,81 @@ source(here::here("R", "30_diagnostics_htmt.R"))
 source(here::here("R", "31_diagnostics_cmv.R"))
 source(here::here("R", "32_diagnostics_icc.R"))
 source(here::here("R", "33_invariance.R"))
-source(here::here("R", "10_datasets.R"))
+source(here::here("R", "40_tables.R"))
+
+# Pipeline reference data (org_synonyme, fields, skalen, skalen_SEM, source_links)
+source(here::here("R", "pipeline", "external_Sources.R"))
+source(here::here("R", "10_datasets.R"))    # DATASETS = list(fc, bo, ro, cross)
 stopifnot(exists("DATASETS"))
 
-# Construct -> item maps (edit to match the registry in 12_lavaan_models.R).
+# ------------------------------------------------------------------------------
+# Construct → item maps (derived from skalen + 01_lavaan_models.R)
+# NOTE: FC_BS and FC items use recoded reversed columns (_rev) — these must
+# already exist in DATASETS$fc after recode_reversed_items() has been applied
+# in build_fragebogen(). TOM and SAW come from the awareness extraction pipeline.
+# ------------------------------------------------------------------------------
 construct_items_bo <- list(
   BO_TR = c("B101_01","B101_02","B101_03"),
   BO_CO = c("B102_01","B102_02","B102_03")
 )
-# construct_items_fc <- list(...)   # fill from cfa_fc_* loadings
-# construct_items_ro <- list(...)   # fill from cfa_ro_original() loadings
+
+construct_items_fc <- list(
+  FC_BR = c("FC01_01","FC01_02","FC01_03"),
+  FC_BD = c("FC01_04","FC01_05","FC01_06"),
+  FC_BC = c("FC02_01","FC02_02","FC02_03","FC02_04","FC02_05","FC02_06","FC02_07","FC02_08"),
+  FC_BS = c("FC02_09","FC02_10_rev","FC02_11","FC02_12_rev"),
+  FC_BF = c("FC03_01","FC03_02","FC03_03"),
+  FC_RC = c("TOM","SAW")
+)
+
+construct_items_ro <- list(
+  RO_BF = c("R201_01","R201_02","R201_03","R201_04"),
+  RO_BS = c("R201_05","R201_06","R201_07"),
+  RO_BI = c("R202_01","R202_02","R202_03","R202_04"),
+  RO_BA = c("R202_05","R202_06","R202_07","R202_08"),
+  RO_BD = c("R203_01","R203_02","R203_03","R203_04","R203_05"),
+  RO_BR = c("R203_06","R203_07","R203_08","R203_09"),
+  RO_AC = c("R204_01","R204_02","R204_03","R204_04"),
+  RO_EC = c("R204_05","R204_06","R204_07","R204_08","R204_09"),
+  RO_ID = c("R205_01","R205_02","R205_03","R205_04","R205_05","R205_06","R205_07")
+)
+
+save_t <- function(t, n) {
+  readr::write_csv(t, file.path(CSV_DIR, paste0(n, ".csv")), na=""); t
+}
 ```
 
-# Sampling and non-independence
+# Organisations and sampling frame
+
+```{r}
+#| label: org-overview
+gt::gt(org_synonyme[, c("org_id","org_name")]) |>
+  gt::tab_header("Table S1. Austrian NPOs evaluated (n = 26)",
+                 subtitle = "Full synonym lists available in R/pipeline/external_Sources.R")
+```
+
+```{r}
+#| label: source-links
+gt::gt(source_links) |>
+  gt::tab_header("Table S2. Recruitment channel overview")
+```
+
+# Sample and non-independence
+
+```{r}
+#| label: dataset-sizes
+audit <- readr::read_csv(file.path(CSV_DIR, "01_dataset_audit.csv"),
+                         show_col_types = FALSE)
+gt::gt(audit) |> gt::tab_header("Table S3. Dataset registry audit")
+```
 
 ```{r}
 #| label: icc
 #| eval: false
-# ICC for the cross-classified structure (needs an organisation id column).
-icc_crossed(DATASETS$cross, response = "OF02_02_num_log",
-            group1 = "REF", group2 = "organisation")
+# ICC for the nested structure (requires an organisation id column; add once
+# BA03_01 → organisation label join is done in the pipeline).
+# icc_crossed(DATASETS$cross, response="OF02_02_num_log",
+#             group1="REF", group2="BA03_01")
 ```
 
 # Discriminant validity (HTMT)
@@ -60,83 +114,204 @@ icc_crossed(DATASETS$cross, response = "OF02_02_num_log",
 ```{r}
 #| label: htmt-bo
 htmt_bo <- htmt_manual(DATASETS$bo, construct_items_bo)
-save_table <- function(t, n) { readr::write_csv(t, file.path(CSV_DIR, paste0(n, ".csv")), na=""); t }
-save_table(htmt_bo, "S_htmt_boenigk")
-gt::gt(htmt_bo) |> gt::tab_header("Boenigk HTMT (trust × commitment)")
+save_t(htmt_bo, "S_htmt_boenigk")
+gt::gt(htmt_bo) |>
+  gt::tab_header("Table S4. Boenigk HTMT (Trust × Commitment)",
+                 subtitle = "< .85 acceptable | .85–.90 borderline | > .90 problematic") |>
+  gt::fmt_number(columns = c(HTMT, heterotrait_mean, monotrait_1_mean, monotrait_2_mean),
+                 decimals = 3)
 ```
 
 ```{r}
-#| label: htmt-fc-ro
-#| eval: false
-# htmt_fc <- htmt_manual(DATASETS$fc, construct_items_fc)
-# htmt_ro <- htmt_manual(DATASETS$ro, construct_items_ro)
-# Expect: Romero shows >.90 problems (e.g. RO_BA–RO_BD, RO_BF–RO_BS, RO_BD–RO_BR).
+#| label: htmt-fc
+# Filter to columns present in DATASETS$fc (TOM/SAW may be absent until
+# awareness pipeline runs; use available items only)
+fc_items_present <- construct_items_fc
+fc_items_present <- lapply(fc_items_present,
+  function(its) its[its %in% names(DATASETS$fc)])
+fc_items_present <- fc_items_present[sapply(fc_items_present, length) >= 2]
+
+htmt_fc <- htmt_manual(DATASETS$fc, fc_items_present)
+save_t(htmt_fc, "S_htmt_faircloth")
+gt::gt(htmt_fc) |>
+  gt::tab_header("Table S5. Faircloth HTMT",
+                 subtitle = "Expected borderline: FC_F1 (FC_BR/FC_BD) × FC_F2 (FC_BC/FC_BS)") |>
+  gt::fmt_number(columns = c(HTMT, heterotrait_mean, monotrait_1_mean, monotrait_2_mean),
+                 decimals = 3)
+```
+
+```{r}
+#| label: htmt-ro
+htmt_ro <- htmt_manual(DATASETS$ro, construct_items_ro)
+save_t(htmt_ro, "S_htmt_romero")
+gt::gt(htmt_ro) |>
+  gt::tab_header("Table S6. Romero HTMT",
+                 subtitle = "Expected problematic (> .90): RO_BA–RO_BD, RO_BF–RO_BS, RO_BD–RO_BR") |>
+  gt::fmt_number(columns = c(HTMT, heterotrait_mean, monotrait_1_mean, monotrait_2_mean),
+                 decimals = 3)
+```
+
+```{r}
+#| label: htmt-summary
+htmt_counts <- dplyr::bind_rows(
+  htmt_summary_counts(htmt_bo, "Boenigk & Becker"),
+  htmt_summary_counts(htmt_fc, "Faircloth"),
+  htmt_summary_counts(htmt_ro, "Romero et al.")
+)
+save_t(htmt_counts, "S_htmt_summary_counts")
+gt::gt(htmt_counts) |> gt::tab_header("Table S7. HTMT interpretation counts by architecture")
 ```
 
 # Common method variance
 
 ```{r}
 #| label: cmv-harman
-#| eval: false
-harman_single_factor(DATASETS$bo, items = unlist(construct_items_bo),
-                     label = "Boenigk Core Architecture")
-# Expect ~ Boenigk 68.8% (problematic), Faircloth 38.5% (acceptable), Romero 50.5%.
+harman_tbl <- dplyr::bind_rows(
+  harman_single_factor(
+    DATASETS$bo, items = unlist(construct_items_bo),
+    label = "Boenigk Core Architecture"),
+  harman_single_factor(
+    DATASETS$fc,
+    items = unlist(fc_items_present),
+    label = "Faircloth Brand Architecture"),
+  harman_single_factor(
+    DATASETS$ro, items = unlist(construct_items_ro),
+    label = "Romero Complex Architecture")
+)
+save_t(harman_tbl, "S_cmv_harman")
+gt::gt(harman_tbl) |>
+  gt::tab_header("Table S8. Harman's single-factor test",
+                 subtitle = "Deliberately weak diagnostic; CFA comparison (Table S9) is more informative") |>
+  gt::fmt_number(columns = harman_first_var_pct, decimals = 2)
 ```
 
 ```{r}
-#| label: cmv-cfa
-#| eval: false
-cmv_cfa_comparison(
+#| label: cmv-cfa-bo
+cmv_bo <- cmv_cfa_comparison(
   trait_model = cfa_bo_original(),
-  data = DATASETS$bo,
-  items = unlist(construct_items_bo),
-  estimator = params$ordinal_estimator,
-  ordered = unlist(construct_items_bo),
-  run_clf = params$run_clf
+  data        = DATASETS$bo,
+  items       = unlist(construct_items_bo),
+  estimator   = params$ordinal_estimator,
+  ordered     = unlist(construct_items_bo),
+  run_clf     = params$run_clf
 )
-# Expect: single-factor fits far worse than theoretical (e.g. CFI .997 vs .414);
-# CLF may fail to converge for the parsimonious Boenigk model.
+save_t(cmv_bo, "S_cmv_cfa_boenigk")
+gt::gt(cmv_bo) |>
+  gt::tab_header("Table S9a. CFA-based CMV comparison — Boenigk",
+                 subtitle = "Single-factor CFI expected near .414 vs theoretical .997") |>
+  gt::fmt_number(columns = c(chisq, CFI, TLI, RMSEA, SRMR), decimals = 3) |>
+  gt::sub_missing(missing_text = "—")
+```
+
+```{r}
+#| label: cmv-cfa-fc
+cmv_fc <- cmv_cfa_comparison(
+  trait_model = cfa_fc_higher_order_original(),
+  data        = DATASETS$fc,
+  items       = unlist(fc_items_present),
+  estimator   = params$ordinal_estimator,
+  ordered     = unlist(fc_items_present),
+  run_clf     = params$run_clf
+)
+save_t(cmv_fc, "S_cmv_cfa_faircloth")
+gt::gt(cmv_fc) |>
+  gt::tab_header("Table S9b. CFA-based CMV comparison — Faircloth") |>
+  gt::fmt_number(columns = c(chisq, CFI, TLI, RMSEA, SRMR), decimals = 3) |>
+  gt::sub_missing(missing_text = "—")
+```
+
+```{r}
+#| label: cmv-cfa-ro
+cmv_ro <- cmv_cfa_comparison(
+  trait_model = cfa_ro_original(),
+  data        = DATASETS$ro,
+  items       = unlist(construct_items_ro),
+  estimator   = params$ordinal_estimator,
+  ordered     = unlist(construct_items_ro),
+  run_clf     = params$run_clf
+)
+save_t(cmv_ro, "S_cmv_cfa_romero")
+gt::gt(cmv_ro) |>
+  gt::tab_header("Table S9c. CFA-based CMV comparison — Romero") |>
+  gt::fmt_number(columns = c(chisq, CFI, TLI, RMSEA, SRMR), decimals = 3) |>
+  gt::sub_missing(missing_text = "—")
 ```
 
 # Multi-group invariance (donor vs non-donor)
 
 ```{r}
-#| label: invariance
-#| eval: false
-invariance_steps(cfa_bo_original(), DATASETS$bo, group = "OF_Spender",
-                 estimator = params$ordinal_estimator,
-                 ordered = unlist(construct_items_bo))
-# Expect Boenigk near-invariant; Faircloth/Romero segment-sensitive.
+#| label: invariance-bo
+inv_bo <- invariance_steps(
+  model      = cfa_bo_original(),
+  data       = DATASETS$bo,
+  group      = "OF_Spender",
+  estimator  = params$ordinal_estimator,
+  ordered    = unlist(construct_items_bo)
+)
+save_t(inv_bo, "S_invariance_boenigk")
+gt::gt(inv_bo) |>
+  gt::tab_header("Table S10a. Measurement invariance — Boenigk (donor vs non-donor)",
+                 subtitle = "Chen (2007): metric/scalar supported if ΔCFI ≥ −.010") |>
+  gt::fmt_number(columns = c(CFI, RMSEA, dCFI, dRMSEA), decimals = 3) |>
+  gt::sub_missing(missing_text = "—")
 ```
 
-# Deviations from the preregistration
+```{r}
+#| label: invariance-fc
+#| eval: false
+# inv_fc <- invariance_steps(cfa_fc_higher_order_original(), DATASETS$fc,
+#                            group="OF_Spender", estimator=params$ordinal_estimator,
+#                            ordered=unlist(fc_items_present))
+```
+
+```{r}
+#| label: invariance-ro
+#| eval: false
+# inv_ro <- invariance_steps(cfa_ro_original(), DATASETS$ro,
+#                            group="OF_Spender", estimator=params$ordinal_estimator,
+#                            ordered=unlist(construct_items_ro))
+```
+
+# Deviations from the preregistration {#sec-deviations}
 
 **Registered plan:** *Triple Replication Study*, OSF (pre-analysis, post-survey
-registration; data collected May–July 2025, registered before analysis). The
-analysis plan was fixed before any model estimation. The registration governs the
-replication of a single higher-order path (Brand Equity → Donation Intention);
-this manuscript reuses the same data for a measurement-defensibility comparison
-and is a largely exploratory re-framing. Deviations are reported transparently
-with justification (Bekkers et al., 2025).
+registration; data collected May–July 2025, registered before analysis;
+anonymised view-only link in main text). The registered plan was fixed before
+model estimation. The registration governs the *replication* of a single
+higher-order path (Brand Equity → Donation Intention); the present manuscript
+reuses the same data for a measurement-defensibility comparison and is a
+**largely exploratory re-framing** (Bekkers et al., 2025).
 
 | # | Registered plan | As implemented | Type | Rationale |
 |---|---|---|---|---|
-| 1 | Estimator: MLR primary; WLSMV robustness check. | WLSMV primary for ordinal measurement models; robust ML for continuous outcomes. | Justified deviation | WLSMV is appropriate for ordinal Likert indicators. |
-| 2 | EFA: PAF + varimax. | Polychoric + OLS (`psych::fa`); parallel analysis / VSS. | Justified deviation | Correct treatment for ordinal data. |
-| 3 | Discriminant validity not specified; comparison via adj. R², ΔCFI/TLI, AIC/BIC. | HTMT added as primary discriminant criterion. | Exploratory addition | Romero overlap (max HTMT ≈ .96) is exploratory. |
-| 4 | Outcome: Brand Equity → Donation Intention (β ≈ .40–.60). | Realised giving (most-recent; annual, log) + binary donor status; intention reserved. | Different/expanded outcomes | Dashboard question concerns behavioural outcomes. |
-| 5 | Exclusion: > 60% missing. | 80% / 90% completeness thresholds. | Justified deviation (stricter) | More conservative analytic sample. |
-| 6 | Predictive-validity replication of one higher-order path. | Architecture-level comparison → layered dashboard. | Exploratory re-framing | Extends beyond the registered replication. |
+| 1 | Estimator: MLR primary; WLSMV robustness. | **WLSMV primary** for ordinal measurement models; robust ML for continuous outcomes. | Justified deviation | WLSMV is appropriate for ordinal Likert indicators. |
+| 2 | EFA: PAF + varimax. | **Polychoric + OLS** (`psych::fa`); parallel analysis / VSS. | Justified deviation | Correct treatment for ordinal data. |
+| 3 | Discriminant validity not specified; comparison via adj. R², ΔCFI/TLI, AIC/BIC. | **HTMT** as primary discriminant criterion. | Exploratory addition | Romero overlap (max HTMT ≈ .96) is therefore exploratory. |
+| 4 | Outcome: Brand Equity → Donation Intention (β ≈ .40–.60). | **Realised giving** (most-recent; annual, log) + binary donor status; intention reserved. | Different / expanded | Dashboard question requires behavioural outcomes. |
+| 5 | Exclusion: > 60% missing. | **80% / 90% completeness** thresholds. | Justified (stricter) | More conservative analytic sample. |
+| 6 | Replication of one higher-order path. | **Architecture-level comparison** → layered dashboard. | Exploratory re-framing | Extends beyond the registered replication. |
 
-**Consistent with the registration:** Austrian online survey, May–July 2025; >20-organisation design; constructive-replication logic; power rationale (≥500/model; Wolf et al., 2013); joint CFI/TLI/RMSEA/SRMR thresholds; multi-group reliability/validity across donor segments.
+**Consistent with the registration:** Austrian online survey, May–July 2025;
+>20-organisation, ~2,000-respondent design; constructive-replication logic;
+power rationale (Wolf et al., 2013); CFI/TLI/RMSEA/SRMR thresholds;
+multi-group reliability/validity across donor/non-donor segments.
 
 # Robustness
 
 ```{r}
-#| label: robustness
+#| label: robustness-ses
 #| eval: false
-# SES-adjusted structural models (ses_mode = "outcome") vs primary (ses_mode = "none").
-# Alternative structures: cfa_fc_core_B(), cfa_fc_purified_A().
+# SES-adjusted structural models: ses_mode = "outcome"
+# source(here::here("R", "21_fit_sem.R"))
+# fit_sem(sem_bo_original, DATASETS$bo, outcome="OF02_02_num_log", ses_mode="outcome")
+```
+
+```{r}
+#| label: robustness-alt-structures
+#| eval: false
+# Alternative Faircloth structures: Core B and Purified A
+# fit_cfa(cfa_fc_core_B(),      DATASETS$fc, estimator=params$ordinal_estimator, model_id="fc_coreB")
+# fit_cfa(cfa_fc_purified_A(),  DATASETS$fc, estimator=params$ordinal_estimator, model_id="fc_purA")
 ```
 
 # Session info {.unnumbered}
@@ -148,7 +323,7 @@ sessionInfo()
 
 # References {.unnumbered}
 
-Bekkers, R., Chapman, C. M., Prosser, A. M. B., Wiepking, P., & Meyer, M. (2025).
-Let us be clear: Why and how to demonstrate data and methods transparency in
-nonprofit research. *VOLUNTAS, 36*(4), 473–482.
+Bekkers, R., Chapman, C. M., Prosser, A. M. B., Wiepking, P., & Meyer, M.
+(2025). Let us be clear: Why and how to demonstrate data and methods
+transparency in nonprofit research. *VOLUNTAS, 36*(4), 473–482.
 https://doi.org/10.1007/s11266-025-00736-0
