@@ -27,3 +27,8 @@ outputs/rendered/*
 # --- renv library (keep the lockfile, ignore the library) ---
 renv/library/
 renv/staging/
+
+# --- Sensitive credentials ---
+R/pipeline/.env.local
+.env.local
+*.env

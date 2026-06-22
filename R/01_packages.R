@@ -19,7 +19,9 @@
   # plotting
   "ggplot2",
   # labelled survey data
-  "haven"
+  "haven",
+  # string interpolation (used by split_validated_data + recode_reversed_items)
+  "glue"
 )
 
 .cbe_load <- function(pkgs = .cbe_pkgs) {

@@ -22,7 +22,8 @@ params:
   secondary_amount_outcome: "OF02_01_num_log"   # most-recent donation (log)
   binary_outcome: "OF_Spender"                  # donor status
   ses_mode: "none"              # "none" | "outcome" | "latent_outcome"
-  rebuild_data: false           # TRUE to rebuild fragebogen from raw (needs pipeline)
+  rebuild_data: false           # TRUE to rebuild fragebogen from raw via build_fragebogen()
+  data_source: "auto"           # "auto" | "api" | "local" (see R/90_load_data_pipeline.R)
 ---
 
 ```{r}
@@ -37,6 +38,14 @@ source(here::here("R", "40_tables.R"))
 
 # Reproducible context-source selection (avoid heuristic; see R/10_datasets.R)
 # SEM_DEBUG_CONTEXT_SOURCE_NAME <- "fragebogen$qnr1"
+# Source pipeline (always — gives us build_fragebogen() and config)
+source(here::here("R", "90_load_data_pipeline.R"))
+
+# Rebuild fragebogen from raw if requested (or if derived data absent)
+if (params$rebuild_data || !file.exists(DATEN_STANDARDISIERT)) {
+  build_fragebogen(rebuild = params$rebuild_data, source = params$data_source)
+}
+
 source(here::here("R", "10_datasets.R"))         # builds DATASETS = list(fc,bo,ro,cross)
 stopifnot(exists("DATASETS"))
 ```
