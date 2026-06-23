@@ -6,6 +6,8 @@ project:
     - analysis/01_main_analysis.qmd
     - analysis/02_supplements_addendum.qmd
     # 03_bootstrap_results.qmd excluded from default render.
+    # 04_addon_missing_values.qmd excluded from default render.
+    # Run manually: quarto render analysis/04_addon_missing_values.qmd
     # Run manually once run_bootstrap.R has finished:
     #   quarto render analysis/03_bootstrap_results.qmd
 
