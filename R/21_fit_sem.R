@@ -17,11 +17,28 @@ fit_sem <- function(sem_builder, data, outcome, ses_mode = "none",
     data <- coerce_sem_data(data)
   }
 
-  # For WLSMV: ordered= should list the Likert indicators from the model syntax,
-  # not the outcome. Use ordered_vars_for_estimator() from 11_fit_helpers.R if
-  # available; otherwise keep whatever was passed.
-  if (is_wls_estimator_local(estimator) && exists("ordered_vars_for_estimator", mode = "function")) {
-    ordered <- ordered_vars_for_estimator(estimator, syntax, data)
+  # For WLSMV: ordered= must list the Likert indicators from the model syntax
+  # (not just the outcome name). Use extract_observed_vars() — the lavaan-parser
+  # based approach from 11_fit_helpers.R — then exclude continuous log-outcomes.
+  CONTINUOUS_OUTCOMES <- c("OF02_01_num_log", "OF02_02_num_log",
+                           "OF02_01_num",     "OF02_02_num")
+  if (is_wls_estimator_local(estimator)) {
+    ordered <- tryCatch({
+      if (exists("extract_observed_vars", mode = "function")) {
+        all_ov <- extract_observed_vars(syntax)
+      } else {
+        # Minimal fallback via lavaan's own parser
+        pm  <- lavaan::lavParseModelString(syntax)
+        all_ov <- unique(c(pm$lhs[pm$op != "~1"], pm$rhs[pm$op != "~1"]))
+        all_ov <- all_ov[nzchar(all_ov) & !grepl("^[0-9]", all_ov)]
+      }
+      # Keep only vars present in data; drop continuous log-outcomes
+      all_ov <- intersect(all_ov, names(data))
+      setdiff(all_ov, CONTINUOUS_OUTCOMES)
+    }, error = function(e) {
+      warning("ordered= extraction failed (", e$message, ") — using ordered=NULL")
+      NULL
+    })
   }
 
   missing_method <- if (is_wls_estimator_local(estimator)) "pairwise" else "fiml"
