@@ -95,7 +95,7 @@ gt_fit_summary(cfa_fit_tbl, "CFA fit by architecture")
 
 ```{r}
 #| label: sem-fits
-#| cache: false
+#| cache: true
 # NOTE: All outcomes use MLR here for speed (n ≈ 2,000, model-specific samples).
 # The binary donor-status outcome (OF_Spender) via WLSMV/probit is in the
 # bootstrap (run_bootstrap.R) and supplement (03_bootstrap_results.qmd).
