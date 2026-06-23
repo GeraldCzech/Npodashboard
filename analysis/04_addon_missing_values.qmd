@@ -44,6 +44,12 @@ source(here::here("R", "11_fit_helpers.R")) # coerce_sem_data, SEM_REGISTRY (bra
 source(here::here("R", "20_fit_cfa.R"))     # fit_cfa(), tidy_fit(), reliability_ave()
 source(here::here("R", "21_fit_sem.R"))     # fit_sem(), sem_paths_r2()
 source(here::here("R", "40_tables.R"))      # save_table(), gt_fit_summary()
+source(here::here("R", "90_load_data_pipeline.R"))  # build_fragebogen() + Pfad-Fallbacks
+# Daten laden (aus Cache wenn vorhanden, sonst bauen):
+if (!file.exists(DATEN_STANDARDISIERT)) {
+  stop("Daten nicht gefunden: ", DATEN_STANDARDISIERT,
+       "\nBitte setzen: export CBE_DATA_DIR=/pfad/zum/ordner")
+}
 source(here::here("R", "10_datasets.R"))    # DATASETS = list(fc, bo, ro, cross)
 stopifnot(exists("DATASETS"))
 
