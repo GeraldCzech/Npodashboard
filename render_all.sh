@@ -54,7 +54,6 @@ renice_rstudio
 render_doc "analysis/01_main_analysis.qmd"
 render_doc "analysis/02_supplements_addendum.qmd"
 # render_doc "analysis/03_bootstrap_results.qmd"  # activate after run_bootstrap.R
-# render_doc "analysis/04_addon_missing_values.qmd"  # missing values add-on
 
 echo "" | tee -a "$LOG"
 echo "============================================================" | tee -a "$LOG"

@@ -49,6 +49,13 @@ if (params$rebuild_data || !file.exists(DATEN_STANDARDISIERT)) {
 
 source(here::here("R", "10_datasets.R"))         # builds DATASETS = list(fc,bo,ro,cross)
 stopifnot(exists("DATASETS"))
+as_lavaan <- function(x) {
+  if (inherits(x, "lavaan")) return(x)
+  for (nm in c("fit","lavaan","model"))
+    if (!is.null(x[[nm]]) && inherits(x[[nm]], "lavaan")) return(x[[nm]])
+  x
+}
+pick <- function(fm, nm) if (nm %in% names(fm)) unname(fm[[nm]]) else NA_real_
 ```
 
 # Overview
@@ -91,6 +98,22 @@ save_table(cfa_fit_tbl, "paper_table_cfa_fit")
 gt_fit_summary(cfa_fit_tbl, "CFA fit by architecture")
 ```
 
+## Outcome mapping check
+
+```{r}
+#| label: outcome-mapping
+#| cache: false
+purrr::walk(c(params$primary_amount_outcome, params$secondary_amount_outcome),
+  function(v) {
+    x <- DATASETS$bo[[v]]
+    cat(sprintf("%-22s  n=%d  mean(log)=%.2f  median(log)=%.2f  range=[%.2f, %.2f]\n",
+                v, sum(!is.na(x)), mean(x,na.rm=TRUE), median(x,na.rm=TRUE),
+                min(x,na.rm=TRUE), max(x,na.rm=TRUE)))
+})
+# Faustregel: Jahressumme > letzte Einzelspende im Mittel
+```
+
+
 # Structural models and explained variance
 
 ```{r}
@@ -127,6 +150,72 @@ gt::gt(sem_r2_tbl) |>
 > **Note on comparability.** Model-specific samples differ; the directly
 > comparable evidence is the identical-case analysis (see supplement §Sampling).
 > R² across non-equivalent solutions is indicative only.
+
+## SEM global fit (CFI / TLI / RMSEA / SRMR)
+
+```{r}
+#| label: sem-global-fit
+#| cache: true
+outcomes_cont <- c(params$primary_amount_outcome, params$secondary_amount_outcome)
+sem_fit_tbl <- purrr::imap_dfr(sem_specs, function(s, id) {
+  purrr::map_dfr(outcomes_cont, function(oc) {
+    fit <- as_lavaan(fit_sem(s$builder, s$data, outcome = oc,
+                             ses_mode = params$ses_mode,
+                             estimator = params$primary_estimator,
+                             model_id = paste0(id, "_gf_", oc)))
+    if (!lavaan::lavInspect(fit, "converged")) return(NULL)
+    fm <- lavaan::fitMeasures(fit)
+    tibble::tibble(
+      model = id, outcome = oc,
+      n     = lavaan::lavInspect(fit, "ntotal"),
+      CFI   = dplyr::coalesce(pick(fm,"cfi.robust"), pick(fm,"cfi.scaled"), pick(fm,"cfi")),
+      TLI   = dplyr::coalesce(pick(fm,"tli.robust"), pick(fm,"tli.scaled"), pick(fm,"tli")),
+      RMSEA = dplyr::coalesce(pick(fm,"rmsea.robust"),pick(fm,"rmsea.scaled"),pick(fm,"rmsea")),
+      SRMR  = pick(fm,"srmr")
+    )
+  })
+}) |> dplyr::mutate(dplyr::across(c(CFI,TLI,RMSEA,SRMR), \(x) round(x, 3)))
+save_table(sem_fit_tbl, "paper_table_sem_fit")
+gt::gt(sem_fit_tbl) |> gt::tab_header("Structural model global fit (CFI/TLI/RMSEA/SRMR)")
+```
+
+## Donor status: Odds Ratio and pseudo-R²
+
+```{r}
+#| label: donor-or
+#| cache: true
+donor_or_tbl <- purrr::imap_dfr(cfa_specs, function(s, id) {
+  fit <- as_lavaan(fit_cfa(s$syntax, s$data,
+                           estimator = params$ordinal_estimator, model_id = id))
+  fs  <- tryCatch(as.data.frame(lavaan::lavPredict(fit)), error = function(e) NULL)
+  if (is.null(fs)) return(NULL)
+  be_col <- intersect(c("BE","BO_BE","FC_BE","RO_BE"), colnames(fs))
+  be <- if (length(be_col)) fs[[be_col[1]]] else rowMeans(scale(fs))
+  d  <- s$data
+  d$be_z  <- as.numeric(scale(be))
+  d$donor <- as.integer(as.character(
+    tryCatch(d[[params$binary_outcome]], error = function(e) d[["OF_Spender"]])))
+  if (all(is.na(d$donor))) return(NULL)
+  m0 <- glm(donor ~ 1,     data = d, family = binomial())
+  m1 <- glm(donor ~ be_z,  data = d, family = binomial())
+  or <- exp(coef(m1)["be_z"])
+  ci <- tryCatch(exp(confint(m1)["be_z",]),
+    error = function(e) exp(coef(m1)["be_z"] + c(-1,1)*1.96*
+                           summary(m1)$coef["be_z","Std. Error"]))
+  mcf  <- 1 - as.numeric(logLik(m1)/logLik(m0))
+  nobs <- stats::nobs(m1)
+  nagk <- (1 - exp((m1$deviance - m0$deviance)/nobs)) /
+          (1 - exp(-m0$deviance/nobs))
+  tibble::tibble(model = id,
+                 OR = round(or,3), OR_lo = round(ci[1],3), OR_hi = round(ci[2],3),
+                 McFadden_R2 = round(mcf,3), Nagelkerke_R2 = round(nagk,3), n = nobs)
+})
+save_table(donor_or_tbl, "paper_table_donor_or")
+gt::gt(donor_or_tbl) |>
+  gt::tab_header("Donor status: OR per +1 SD brand equity + pseudo-R²",
+                 subtitle = "Source of OR = 2.707: Boenigk factor score -> logistic regression")
+```
+
 
 # Session info {.unnumbered}
 

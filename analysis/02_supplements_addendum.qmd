@@ -39,6 +39,21 @@ source(here::here("R", "pipeline", "external_Sources.R"))
 source(here::here("R", "10_datasets.R"))    # DATASETS = list(fc, bo, ro, cross)
 stopifnot(exists("DATASETS"))
 
+# cfa_specs needed by reliability and nested comparison chunks
+cfa_specs <- list(
+  fc_higher = list(syntax = cfa_fc_higher_order_original(), data = DATASETS$fc),
+  fc_coreB  = list(syntax = cfa_fc_core_B(),                data = DATASETS$fc),
+  bo        = list(syntax = cfa_bo_original(),              data = DATASETS$bo),
+  ro        = list(syntax = cfa_ro_original(),              data = DATASETS$ro)
+)
+as_lavaan <- function(x) {
+  if (inherits(x, "lavaan")) return(x)
+  for (nm in c("fit","lavaan","model"))
+    if (!is.null(x[[nm]]) && inherits(x[[nm]], "lavaan")) return(x[[nm]])
+  x
+}
+pick <- function(fm, nm) if (nm %in% names(fm)) unname(fm[[nm]]) else NA_real_
+
 # ------------------------------------------------------------------------------
 # Construct → item maps (derived from skalen + 01_lavaan_models.R)
 # NOTE: FC_BS and FC items use recoded reversed columns (_rev) — these must
@@ -90,6 +105,34 @@ gt::gt(org_synonyme[, c("org_id","org_name")]) |>
 gt::gt(source_links) |>
   gt::tab_header("Table S2. Recruitment channel overview")
 ```
+
+# Reliability (omega / CR) and AVE by construct
+
+```{r}
+#| label: reliability-ave
+#| cache: true
+reliability_tbl <- purrr::imap_dfr(cfa_specs, function(s, id) {
+  fit <- as_lavaan(fit_cfa(s$syntax, s$data,
+                           estimator = "WLSMV", model_id = paste0(id,"_rel")))
+  om  <- tryCatch(semTools::compRelSEM(fit, tau.eq = FALSE, return.total = FALSE),
+                  error = function(e) tryCatch(semTools::reliability(fit)["omega",],
+                                               error = function(e2) NA_real_))
+  ave <- tryCatch(semTools::AVE(fit),
+                  error = function(e) setNames(rep(NA_real_, length(om)), names(om)))
+  tibble::tibble(
+    model     = id,
+    construct = names(om),
+    omega     = round(as.numeric(om), 3),
+    AVE       = round(as.numeric(ave[names(om)]), 3),
+    AVE_ok    = ifelse(!is.na(AVE), AVE >= .50, NA)
+  )
+})
+save_t(reliability_tbl, "S_reliability_ave")
+gt::gt(reliability_tbl) |>
+  gt::tab_header("Reliability (omega/CR) and AVE by construct",
+                 subtitle = "AVE >= .50 = convergent validity supported")
+```
+
 
 # Sample and non-independence
 
@@ -319,6 +362,36 @@ validated %>%
 > Bootstrap results are produced separately via `run_bootstrap.R`
 > (see repo root). Once `outputs/csv/supplements/S20_r2_difference_bootstrap_all_levels.csv`
 > exists, render `analysis/03_bootstrap_results.qmd` to produce Table S11.
+
+# Faircloth model comparison (AIC/BIC — not a nested chi-square test)
+
+```{r}
+#| label: faircloth-nested-correct
+#| cache: true
+#| error: true
+fcA <- as_lavaan(fit_cfa(cfa_specs$fc_higher$syntax, cfa_specs$fc_higher$data,
+                         estimator = "WLSMV", model_id = "fc_higher_nested"))
+fcB <- as_lavaan(fit_cfa(cfa_specs$fc_coreB$syntax,  cfa_specs$fc_coreB$data,
+                         estimator = "WLSMV", model_id = "fc_coreB_nested"))
+fmA <- lavaan::fitMeasures(fcA); fmB <- lavaan::fitMeasures(fcB)
+nested_tbl <- tibble::tibble(
+  model = c("Model A — full attribute set (fc_higher)", "Model B — core, attributes removed (fc_coreB)"),
+  CFI   = round(c(dplyr::coalesce(pick(fmA,"cfi.scaled"),pick(fmA,"cfi")),
+                  dplyr::coalesce(pick(fmB,"cfi.scaled"),pick(fmB,"cfi"))), 3),
+  RMSEA = round(c(dplyr::coalesce(pick(fmA,"rmsea.scaled"),pick(fmA,"rmsea")),
+                  dplyr::coalesce(pick(fmB,"rmsea.scaled"),pick(fmB,"rmsea"))), 3),
+  SRMR  = round(c(pick(fmA,"srmr"), pick(fmB,"srmr")), 3),
+  AIC   = tryCatch(c(AIC(fcA), AIC(fcB)), error = function(e) c(NA_real_, NA_real_)),
+  BIC   = tryCatch(c(BIC(fcA), BIC(fcB)), error = function(e) c(NA_real_, NA_real_))
+)
+save_t(nested_tbl, "S_faircloth_model_comparison")
+gt::gt(nested_tbl) |>
+  gt::tab_header("Faircloth: descriptive fit comparison",
+                 subtitle = "Models A and B differ in indicators -> NOT nested -> no chi-square test permissible")
+# Only if truly nested (identical items, B = restriction of A):
+# lavaan::lavTestLRT(fcB, fcA, method = "satorra.bentler.2010")
+```
+
 
 # Deviations from the preregistration {#sec-deviations}
 

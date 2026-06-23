@@ -14,7 +14,11 @@ PROJECT_ROOT <- here::here()
 
 # Data directories ------------------------------------------------------------
 # Default: data/derived inside the repo. Override via Sys.setenv(CBE_DATA_DIR=...)
-DATA_DIR <- Sys.getenv("CBE_DATA_DIR", unset = here::here("data", "derived"))
+# Primary data location (Gerald's server). Override with CBE_DATA_DIR if needed.
+.gerald_data <- "/home/gerald/10787172/scripts/research2/output"
+DATA_DIR <- Sys.getenv("CBE_DATA_DIR",
+              unset = if (dir.exists(.gerald_data)) .gerald_data
+                      else here::here("data", "derived"))
 RAW_DIR  <- Sys.getenv("CBE_RAW_DIR",  unset = here::here("data", "raw"))
 
 # The standardised analysis workspace consumed by R/10_datasets.R
