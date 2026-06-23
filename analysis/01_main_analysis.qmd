@@ -96,27 +96,32 @@ gt_fit_summary(cfa_fit_tbl, "CFA fit by architecture")
 ```{r}
 #| label: sem-fits
 #| cache: false
+# NOTE: All outcomes use MLR here for speed (n ≈ 2,000, model-specific samples).
+# The binary donor-status outcome (OF_Spender) via WLSMV/probit is in the
+# bootstrap (run_bootstrap.R) and supplement (03_bootstrap_results.qmd).
 sem_specs <- list(
   fc = list(builder = sem_fc_original, data = DATASETS$fc),
   bo = list(builder = sem_bo_original, data = DATASETS$bo),
   ro = list(builder = sem_ro_original, data = DATASETS$ro)
 )
-outcomes <- c(params$primary_amount_outcome,
-              params$secondary_amount_outcome,
-              params$binary_outcome)
+# Continuous outcomes only in this summary table
+outcomes_cont <- c(params$primary_amount_outcome,
+                   params$secondary_amount_outcome)
 
 sem_r2_tbl <- purrr::imap_dfr(sem_specs, function(s, id) {
-  purrr::map_dfr(outcomes, function(oc) {
-    is_binary <- is_binary_outcome(oc, s$data)   # from 11_fit_helpers.R
+  purrr::map_dfr(outcomes_cont, function(oc) {
     fit <- fit_sem(s$builder, s$data, outcome = oc, ses_mode = params$ses_mode,
-                   estimator = if (is_binary) params$ordinal_estimator else params$primary_estimator,
+                   estimator = params$primary_estimator,   # MLR for continuous
                    model_id = paste0(id, "_", oc))
-    # ordered= handled inside fit_sem via ordered_vars_for_estimator()
     sem_paths_r2(fit, outcome = oc, model_id = paste0(id, "_", oc))
   })
 })
 save_table(sem_r2_tbl, "paper_table_structural_paths_r2")
-gt::gt(sem_r2_tbl) |> gt::tab_header("Structural paths and R² (identical-case discipline applies; see supplement)")
+gt::gt(sem_r2_tbl) |>
+  gt::tab_header(
+    "Structural paths and R² — continuous outcomes, MLR (model-specific samples)",
+    subtitle = "Binary donor status (OF_Spender, WLSMV/probit): see 03_bootstrap_results.qmd"
+  )
 ```
 
 > **Note on comparability.** Model-specific samples differ; the directly
