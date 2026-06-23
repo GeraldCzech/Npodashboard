@@ -59,5 +59,14 @@ echo "" | tee -a "$LOG"
 echo "============================================================" | tee -a "$LOG"
 echo "All done at $(date '+%Y-%m-%d %H:%M:%S')"                     | tee -a "$LOG"
 echo "============================================================" | tee -a "$LOG"
-echo "Tip: RStudio processes still at nice=19. To restore:" | tee -a "$LOG"
-echo "     renice 0 \$(pgrep -u \$USER -f rstudio-server | tr '\n' ' ')" | tee -a "$LOG"
+# Restore normal priority for RStudio/R background processes
+echo "" | tee -a "$LOG"
+echo "Restoring RStudio/R background processes to nice=0..." | tee -a "$LOG"
+RESTORE_PIDS=$(pgrep -u "$USER" -f "rstudio-server|/usr/lib/R/bin" 2>/dev/null || true)
+if [ -n "$RESTORE_PIDS" ]; then
+  # shellcheck disable=SC2086
+  renice 0 $RESTORE_PIDS >> "$LOG" 2>&1 || true
+  echo "Restored: $(echo $RESTORE_PIDS | tr '\n' ' ')" | tee -a "$LOG"
+else
+  echo "No processes to restore." | tee -a "$LOG"
+fi
