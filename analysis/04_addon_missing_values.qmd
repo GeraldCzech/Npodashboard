@@ -39,8 +39,8 @@ VORAUSSETZUNG
 # --- Module sources (portable, from repo root via here::here) ----------------
 source(here::here("R", "00_paths.R"))       # DATA_DIR, CSV_DIR, OUT_DIR etc.
 source(here::here("R", "01_packages.R"))    # library() calls
-source(here::here("R", "11_fit_helpers.R")) # coerce_sem_data, SEM_REGISTRY etc.
-source(here::here("R", "12_lavaan_models.R")) # cfa_*/sem_* builders
+source(here::here("R", "12_lavaan_models.R")) # cfa_*/sem_* builders  <- MUSS VOR 11 kommen
+source(here::here("R", "11_fit_helpers.R")) # coerce_sem_data, SEM_REGISTRY (braucht sem_* aus 12)
 source(here::here("R", "20_fit_cfa.R"))     # fit_cfa(), tidy_fit(), reliability_ave()
 source(here::here("R", "21_fit_sem.R"))     # fit_sem(), sem_paths_r2()
 source(here::here("R", "40_tables.R"))      # save_table(), gt_fit_summary()
