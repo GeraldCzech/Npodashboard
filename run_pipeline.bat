@@ -6,7 +6,7 @@ REM   Win+R -> cmd -> cd C:\...\Npodashboard -> run_pipeline.bat
 REM ===========================================================================
 
 REM ── KONFIGURATION (hier anpassen) ──────────────────────────────────────────
-set DATA_DIR=C:\Users\Gerald\npodashboard\home\gerald\10787172\scripts\research2\output
+set DATA_DIR=C:\npo\data
 set BOOT_B=1000
 set BOOT_NCORES=3
 set RUN_BOOTSTRAP=0
