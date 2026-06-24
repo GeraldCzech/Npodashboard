@@ -21,8 +21,12 @@ suppressPackageStartupMessages(library(gt))
 
 ```{r}
 #| label: check-csv
-boot_csv <- file.path(CSV_DIR, "supplements",
-                      "S20_r2_difference_bootstrap_all_levels.csv")
+# Bootstrap output path — try compendium CSV dir first, then legacy sem_debug location
+.boot_candidates <- c(
+  file.path(CSV_DIR, "supplements", "S20_r2_difference_bootstrap_all_levels.csv"),
+  "/home/gerald/10787172/outputs/sem_debug/supplements/S20_r2_difference_bootstrap_all_levels.csv"
+)
+boot_csv <- .boot_candidates[file.exists(.boot_candidates)][1]
 if (!file.exists(boot_csv)) {
   stop("Bootstrap CSV not found: ", boot_csv,
        "\nRun:  Rscript run_bootstrap.R   (from the repo root)")

@@ -28,6 +28,8 @@ params:
 source(here::here("R", "00_paths.R"))
 source(here::here("R", "01_packages.R"))
 source(here::here("R", "12_lavaan_models.R"))
+source(here::here("R", "20_fit_cfa.R"))       # fit_cfa(), tidy_fit(), reliability_ave()
+source(here::here("R", "21_fit_sem.R"))       # fit_sem(), sem_paths_r2()
 source(here::here("R", "30_diagnostics_htmt.R"))
 source(here::here("R", "31_diagnostics_cmv.R"))
 source(here::here("R", "32_diagnostics_icc.R"))
