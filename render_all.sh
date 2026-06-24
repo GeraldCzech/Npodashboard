@@ -53,7 +53,7 @@ renice_rstudio
 # Render in order
 render_doc "analysis/01_main_analysis.qmd"
 render_doc "analysis/02_supplements_addendum.qmd"
-render_doc "analysis/03_bootstrap_results.qmd"   # bootstrap done
+# render_doc "analysis/03_bootstrap_results.qmd"  # content merged into 02
 
 echo "" | tee -a "$LOG"
 echo "============================================================" | tee -a "$LOG"

@@ -395,18 +395,22 @@ if (!is.na(.boot_csv) && file.exists(.boot_csv)) {
     gt::tab_header(
       "Table S11. Bootstrap ΔR² between brand-equity architectures",
       subtitle = paste0(
-        "Paired case bootstrap on identical-case sample (n = 266); ",
-        "95% percentile CI; Holm-adjusted p. ",
-        "conv_rate = proportion of B = ", unique(boot_tbl$B_target)[1],
-        " replicates with admissible solutions."
+        "Paired case bootstrap, identical-case sample (n = 266); ",
+        "B = 1,000 replicates; MLR+FIML continuous, WLSMV probit binary; ",
+        "admissible only (converged, no Heywood); 95% percentile CI; Holm p."
       )
     ) |>
     gt::fmt_number(c(R2_A, R2_B, Delta_R2, CI_low, CI_high), decimals = 3) |>
     gt::fmt_number(c(p_value, p_holm), decimals = 3) |>
     gt::sub_missing(missing_text = "—") |>
     gt::tab_footnote(
-      "Comparisons involving Romero: convergence rates 14–18% — indicative only.",
+      paste0("Romero comparisons: conv_rate 14-18% (137-177 admissible pairs) ",
+             "— point estimates and p-values are indicative only."),
       gt::cells_column_labels(conv_pct)
+    ) |>
+    gt::tab_footnote(
+      "Model labels: bo_original = Boenigk & Becker; fc_core_B = Faircloth Core B; ro_original = Ríos Romero et al.",
+      gt::cells_column_labels(Model_A)
     )
 } else {
   message("Bootstrap CSV not found. Run run_bootstrap.R first.")
