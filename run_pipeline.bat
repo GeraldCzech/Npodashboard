@@ -26,6 +26,9 @@ if "%RSCRIPT%"=="" (
     for /d %%v in ("%ProgramFiles(x86)%\R\R-*") do set RSCRIPT=%%v\bin\Rscript.exe
 )
 if "%RSCRIPT%"=="" (
+    for /d %%v in ("%LOCALAPPDATA%\Programs\R\R-*") do set RSCRIPT=%%v\bin\Rscript.exe
+)
+if "%RSCRIPT%"=="" (
     echo FEHLER: R nicht gefunden. Bitte R installieren:
     echo   https://cran.r-project.org/bin/windows/base/
     echo Oder Pfad manuell setzen:  set RSCRIPT=C:\Programme\R\R-4.x.x\bin\Rscript.exe
