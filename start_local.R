@@ -10,6 +10,12 @@
 # Voraussetzung: Tarball entpackt, Pfad zu den .RData/.rds-Dateien bekannt.
 # ==============================================================================
 
+# --- 0. R-Bibliothek auf lokalen Pfad (verhindert OneDrive-Umlaut-Problem) ---
+local_rlib <- "C:/Rlib"
+if (!dir.exists(local_rlib)) dir.create(local_rlib, recursive = TRUE)
+.libPaths(c(local_rlib, .libPaths()))
+message("R-Bibliothek: ", paste(.libPaths()[1:2], collapse = ", "))
+
 # --- 1. Pakete installieren (einmalig) ----------------------------------------
 # CRAN-Mirror explizit setzen (nötig für nicht-interaktive Rscript-Ausführung)
 options(repos = c(CRAN = "https://cloud.r-project.org"))

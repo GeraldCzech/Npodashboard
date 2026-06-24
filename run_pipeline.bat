@@ -15,6 +15,10 @@ REM ─────────────────────────�
 cd /d "%~dp0"
 set CBE_DATA_DIR=%DATA_DIR%
 
+REM --- R-Bibliothek auf lokalen Pfad (kein OneDrive, keine Umlaute) ----------
+set R_LIBS_USER=C:\Rlib
+if not exist C:\Rlib md C:\Rlib
+
 REM --- Rscript.exe automatisch finden ----------------------------------------
 set RSCRIPT=
 REM Zuerst bekannten R 4.6.0 Pfad prüfen
