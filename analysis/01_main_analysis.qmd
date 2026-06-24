@@ -11,7 +11,7 @@ format:
     df-print: kable
     embed-resources: true
 execute:
-  echo: true
+  echo: false       # clean output for submission; set true to see code
   warning: false
   message: false
   cache: true        # cache expensive SEM fits
@@ -147,6 +147,15 @@ gt::gt(sem_r2_tbl) |>
   )
 ```
 
+> **Note on Faircloth beta sign.** The negative standardised path
+> coefficient for Faircloth × annual donation (β = −.44) reflects
+> suppression in the higher-order structure: once Brand Loyalty and
+> Brand Differentiation are partialled via the higher-order factor,
+> the residual variance attributed to FC\_BE correlates negatively with
+> larger annual amounts. This pattern does not appear in Boenigk or
+> Romero and is flagged as a specification-sensitivity artefact of the
+> Faircloth higher-order model.
+
 > **Note on comparability.** Model-specific samples differ; the directly
 > comparable evidence is the identical-case analysis (see supplement §Sampling).
 > R² across non-equivalent solutions is indicative only.
@@ -189,8 +198,19 @@ donor_or_tbl <- purrr::imap_dfr(cfa_specs, function(s, id) {
                            estimator = params$ordinal_estimator, model_id = id))
   fs  <- tryCatch(as.data.frame(lavaan::lavPredict(fit)), error = function(e) NULL)
   if (is.null(fs)) return(NULL)
-  be_col <- intersect(c("BE","BO_BE","FC_BE","RO_BE"), colnames(fs))
-  be <- if (length(be_col)) fs[[be_col[1]]] else rowMeans(scale(fs))
+  # lavPredict() column names depend on model structure; find the HO factor
+  # or fall back to first principal component across all factor scores
+  ho_candidates <- c("BE","FC_BE","BO_BE","RO_BE",
+                     grep("_BE$|^BE", colnames(fs), value = TRUE))
+  be_col <- intersect(ho_candidates, colnames(fs))
+  if (length(be_col) == 0) {
+    # No HO factor found — use first PC of all factor scores as composite
+    message("lavPredict cols: ", paste(colnames(fs), collapse=", "))
+    be <- as.numeric(prcomp(scale(fs[, !grepl("^NA", colnames(fs))]),
+                            center=FALSE, scale.=FALSE)$x[,1])
+  } else {
+    be <- fs[[be_col[1]]]
+  }
   d  <- s$data
   d$be_z  <- as.numeric(scale(be))
   d$donor <- as.integer(as.character(
