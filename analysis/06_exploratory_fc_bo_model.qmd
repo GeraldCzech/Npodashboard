@@ -182,7 +182,10 @@ so_syntax <- paste(
 so_syntax_2block <- paste(
   fo_syntax_clean,
   "\n# Two-block solution (BBB absorbs FC_BC)",
-  "BBB =~ FC_BR + FC_BD + FC_BF + BO_BF + AW + FC_BC",
+  paste0("BBB =~ FC_BR + FC_BD + FC_BF",
+         if ("BO_BF" %in% trimws(gsub(" =~.*","",fo_lines))) " + BO_BF" else "",
+         if (length(aw_items) >= 2) " + AW" else "",
+         " + FC_BC"),
   "BRB =~ BO_TR + BO_CO",
   sep = "\n"
 )
