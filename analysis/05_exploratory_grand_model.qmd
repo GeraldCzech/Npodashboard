@@ -11,6 +11,7 @@ format:
     embed-resources: true
 execute:
   echo: true
+  error: true      # show errors inline instead of stopping
   warning: false
   message: false
   cache: true
@@ -58,7 +59,7 @@ fit_and_score <- function(syntax, data, prefix, label,
 
 ```{r}
 #| label: factor-scores
-#| cache: true
+#| cache: false
 
 fs_fc <- fit_and_score(cfa_fc_higher_order_original(),
                        DATASETS$fc, "FC.", "Faircloth (n=2038)")
@@ -123,8 +124,10 @@ print(names(fs_all))
 
 ```{r}
 #| label: latent-correlations
+message("fs_all dim: ", nrow(fs_all), " x ", ncol(fs_all))
+message("complete cases: ", sum(complete.cases(fs_all)))
 if (nrow(fs_complete) < 10 || ncol(fs_complete) < 2)
-  stop("Too few complete cases or columns — check Stage 1 output.")
+  stop("Too few complete cases or columns — see messages above for which model failed.")
 
 cor_mat <- cor(fs_complete, method = "pearson")
 round(cor_mat, 2) |> as.data.frame() |>
