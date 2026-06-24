@@ -167,11 +167,12 @@ if (lavaan::lavInspect(fit_fo, "converged")) {
 so_syntax <- paste(
   fo_syntax_clean,
   "\n# Second-order blocks",
-  "BBB =~ FC_BR + FC_BD + FC_BF + BO_BF + AW",
-  "BUB =~ FC_BC",          # single indicator — fixed residual
+  paste0("BBB =~ FC_BR + FC_BD + FC_BF + BO_BF",
+         if (length(aw_items) >= 2) " + AW" else ""),
+  "BUB =~ FC_BC",
   "BRB =~ BO_TR + BO_CO",
-  "\n# Fix BUB residual (single indicator, not identified otherwise)",
-  "FC_BC ~~ 0.10 * FC_BC",   # small residual — exploratory
+  "\n# Fix BUB residual (single indicator)",
+  "FC_BC ~~ 0.10 * FC_BC"
   sep = "\n"
 )
 
