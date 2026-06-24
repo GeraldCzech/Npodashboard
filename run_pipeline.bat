@@ -70,18 +70,13 @@ echo [1/4] Lade Module und Daten...
 "%RSCRIPT%" start_local.R || goto :error
 
 REM --- Schritt 2: Hauptanalyse -----------------------------------------------
-if not "%QUARTO%"=="" (
-    echo.
-    echo [2/4] Rendere 01_main_analysis.qmd...
-    "%QUARTO%" render analysis/01_main_analysis.qmd || goto :error
+echo.
+echo [2/4] Rendere 01_main_analysis.qmd...
+"%RSCRIPT%" -e "Sys.setenv(R_LIBS_USER='C:/Rlib'); .libPaths(c('C:/Rlib',.libPaths())); rmarkdown::render('analysis/01_main_analysis.qmd', output_dir='outputs/rendered')" || goto :error
 
-    echo.
-    echo [3/4] Rendere 02_supplements_addendum.qmd...
-    "%QUARTO%" render analysis/02_supplements_addendum.qmd || goto :error
-) else (
-    echo [2/4] Quarto fehlt - Rendering uebersprungen.
-    echo [3/4] ^(ebenso^)
-)
+echo.
+echo [3/4] Rendere 02_supplements_addendum.qmd...
+"%RSCRIPT%" -e "Sys.setenv(R_LIBS_USER='C:/Rlib'); .libPaths(c('C:/Rlib',.libPaths())); rmarkdown::render('analysis/02_supplements_addendum.qmd', output_dir='outputs/rendered')" || goto :error
 
 REM --- Schritt 4: Bootstrap --------------------------------------------------
 if "%RUN_BOOTSTRAP%"=="1" (
