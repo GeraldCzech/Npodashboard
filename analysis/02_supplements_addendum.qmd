@@ -64,7 +64,9 @@ pick <- function(fm, nm) if (nm %in% names(fm)) unname(fm[[nm]]) else NA_real_
 # ------------------------------------------------------------------------------
 construct_items_bo <- list(
   BO_TR = c("B101_01","B101_02","B101_03"),
-  BO_CO = c("B102_01","B102_02","B102_03")
+  BO_CO = c("B102_01","B102_02","B102_03"),
+  BO_BF = c("BC03_01","BC03_02","BC03_03"),  # Brand Familiarity/Awareness
+  BO_RC = c("TOM","SAW")                      # Top-of-Mind + Spontaneous Awareness
 )
 
 construct_items_fc <- list(

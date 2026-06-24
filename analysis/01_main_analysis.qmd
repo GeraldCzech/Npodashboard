@@ -200,21 +200,27 @@ donor_or_tbl <- purrr::imap_dfr(cfa_specs, function(s, id) {
   if (is.null(fs)) return(NULL)
   # lavPredict() column names depend on model structure; find the HO factor
   # or fall back to first principal component across all factor scores
+  all_cols <- colnames(fs)
+  message("lavPredict cols for ", id, ": ", paste(all_cols, collapse=", "))
+  # Search for HO factor, then regex, then first PC
   ho_candidates <- c("BE","FC_BE","BO_BE","RO_BE",
-                     grep("_BE$|^BE", colnames(fs), value = TRUE))
-  be_col <- intersect(ho_candidates, colnames(fs))
-  if (length(be_col) == 0) {
-    # No HO factor found — use first PC of all factor scores as composite
-    message("lavPredict cols: ", paste(colnames(fs), collapse=", "))
-    be <- as.numeric(prcomp(scale(fs[, !grepl("^NA", colnames(fs))]),
-                            center=FALSE, scale.=FALSE)$x[,1])
-  } else {
-    be <- fs[[be_col[1]]]
-  }
+                     grep("_BE$|^BE$", all_cols, value=TRUE))
+  be_col <- intersect(ho_candidates, all_cols)
+  be <- if (length(be_col) > 0) {
+    fs[[be_col[1]]]
+  } else if (ncol(fs) > 0) {
+    # Use first principal component across all factor scores
+    tryCatch(as.numeric(prcomp(scale(fs), center=FALSE, scale.=FALSE)$x[,1]),
+             error = function(e) rowMeans(scale(fs)))
+  } else { NULL }
+  if (is.null(be) || all(is.na(be))) return(NULL)
   d  <- s$data
   d$be_z  <- as.numeric(scale(be))
-  d$donor <- as.integer(as.character(
-    tryCatch(d[[params$binary_outcome]], error = function(e) d[["OF_Spender"]])))
+  # as.integer() directly on logical avoids as.character(TRUE) -> NA bug
+  raw_donor <- tryCatch(d[[params$binary_outcome]],
+                        error = function(e) d[["OF_Spender"]])
+  d$donor <- if (is.logical(raw_donor)) as.integer(raw_donor)
+              else suppressWarnings(as.integer(as.character(raw_donor)))
   if (all(is.na(d$donor))) return(NULL)
   m0 <- glm(donor ~ 1,     data = d, family = binomial())
   m1 <- glm(donor ~ be_z,  data = d, family = binomial())
