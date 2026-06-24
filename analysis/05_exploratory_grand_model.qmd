@@ -38,10 +38,10 @@ fit_fc <- tryCatch(
   error = function(e) { message("FC error: ", e$message); NULL })
 message("FC converged: ", !is.null(fit_fc) && lavaan::lavInspect(fit_fc,"converged"))
 
-fs_fc <- if (!is.null(fit_fc) && lavaan::lavInspect(fit_fc,"converged"))
+fs_fc <- if (!is.null(fit_fc) && lavaan::lavInspect(fit_fc,"converged")) {
   tryCatch(as.data.frame(lavaan::lavPredict(fit_fc)),
            error = function(e) { message("FC lavPredict: ", e$message); NULL })
-else NULL
+} else NULL
 message("FC factor scores: ", if(is.null(fs_fc)) "NONE" else paste(ncol(fs_fc),"cols"))
 if (!is.null(fs_fc)) names(fs_fc) <- paste0("FC.", names(fs_fc))
 ```
@@ -54,10 +54,10 @@ fit_bo <- tryCatch(
   error = function(e) { message("BO error: ", e$message); NULL })
 message("BO converged: ", !is.null(fit_bo) && lavaan::lavInspect(fit_bo,"converged"))
 
-fs_bo <- if (!is.null(fit_bo) && lavaan::lavInspect(fit_bo,"converged"))
+fs_bo <- if (!is.null(fit_bo) && lavaan::lavInspect(fit_bo,"converged")) {
   tryCatch(as.data.frame(lavaan::lavPredict(fit_bo)),
            error = function(e) { message("BO lavPredict: ", e$message); NULL })
-else NULL
+} else NULL
 message("BO factor scores: ", if(is.null(fs_bo)) "NONE" else paste(ncol(fs_bo),"cols"))
 if (!is.null(fs_bo)) names(fs_bo) <- paste0("BO.", names(fs_bo))
 ```
@@ -70,10 +70,10 @@ fit_ro <- tryCatch(
   error = function(e) { message("RO error: ", e$message); NULL })
 message("RO converged: ", !is.null(fit_ro) && lavaan::lavInspect(fit_ro,"converged"))
 
-fs_ro <- if (!is.null(fit_ro) && lavaan::lavInspect(fit_ro,"converged"))
+fs_ro <- if (!is.null(fit_ro) && lavaan::lavInspect(fit_ro,"converged")) {
   tryCatch(as.data.frame(lavaan::lavPredict(fit_ro)),
            error = function(e) { message("RO lavPredict: ", e$message); NULL })
-else NULL
+} else NULL
 message("RO factor scores: ", if(is.null(fs_ro)) "NONE" else paste(ncol(fs_ro),"cols"))
 if (!is.null(fs_ro)) names(fs_ro) <- paste0("RO.", names(fs_ro))
 ```
