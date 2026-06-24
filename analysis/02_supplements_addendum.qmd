@@ -363,9 +363,60 @@ validated %>%
 
 # R² difference bootstrap (S20)
 
-> Bootstrap results are produced separately via `run_bootstrap.R`
-> (see repo root). Once `outputs/csv/supplements/S20_r2_difference_bootstrap_all_levels.csv`
-> exists, render `analysis/03_bootstrap_results.qmd` to produce Table S11.
+```{r}
+#| label: bootstrap-read
+#| cache: false
+#| warning: false
+# Read bootstrap results directly — no recomputation needed.
+# Tries compendium CSV dir first, then the legacy sem_debug location.
+.boot_candidates <- c(
+  file.path(CSV_DIR, "supplements", "S20_r2_difference_bootstrap_all_levels.csv"),
+  "/home/gerald/10787172/outputs/sem_debug/supplements/S20_r2_difference_bootstrap_all_levels.csv"
+)
+.boot_csv <- .boot_candidates[file.exists(.boot_candidates)][1]
+
+if (!is.na(.boot_csv) && file.exists(.boot_csv)) {
+  boot_tbl <- readr::read_csv(.boot_csv, show_col_types = FALSE)
+
+  boot_tbl |>
+    dplyr::select(
+      Outcome, Model_A, Model_B,
+      R2_A, R2_B, Delta_R2,
+      CI_low, CI_high,
+      p_value, p_holm,
+      B, conv_rate
+    ) |>
+    dplyr::mutate(
+      conv_pct = paste0(round(conv_rate*100,0),"%"),
+      dplyr::across(c(R2_A, R2_B, Delta_R2, CI_low, CI_high), ~ round(.x, 3)),
+      dplyr::across(c(p_value, p_holm), ~ round(.x, 3))
+    ) |>
+    gt::gt() |>
+    gt::tab_header(
+      "Table S11. Bootstrap ΔR² between brand-equity architectures",
+      subtitle = paste0(
+        "Paired case bootstrap on identical-case sample (n = 266); ",
+        "95% percentile CI; Holm-adjusted p. ",
+        "conv_rate = proportion of B = ", unique(boot_tbl$B_target)[1],
+        " replicates with admissible solutions."
+      )
+    ) |>
+    gt::fmt_number(c(R2_A, R2_B, Delta_R2, CI_low, CI_high), decimals = 3) |>
+    gt::fmt_number(c(p_value, p_holm), decimals = 3) |>
+    gt::sub_missing(missing_text = "—") |>
+    gt::tab_footnote(
+      "Comparisons involving Romero: convergence rates 14–18% — indicative only.",
+      gt::cells_column_labels(conv_pct)
+    )
+} else {
+  message("Bootstrap CSV not found. Run run_bootstrap.R first.")
+  cat("Expected at:
+")
+  cat(paste(.boot_candidates, collapse = "
+"), "
+")
+}
+```
 
 # Faircloth model comparison (AIC/BIC — not a nested chi-square test)
 
