@@ -85,32 +85,39 @@ print(psych::fa.sort(fa_res), digits = 2, cut = 0.30)
 ```{r}
 #| label: fo-cfa-syntax
 # Shared awareness items used once (AW) to avoid dual-loading
-fo_syntax <- "
-  # FC constructs
-  FC_BR =~ FC01_01 + FC01_02 + FC01_03
-  FC_BD =~ FC01_04 + FC01_05 + FC01_06
-  FC_BC =~ FC02_01 + FC02_02 + FC02_03 + FC02_04 +
-           FC02_05 + FC02_06 + FC02_07 + FC02_08
-  FC_BF =~ FC03_01 + FC03_02 + FC03_03
-
-  # BO constructs
-  BO_TR =~ B101_01 + B101_02 + B101_03
-  BO_CO =~ B102_01 + B102_02 + B102_03
-  BO_BF =~ BC03_01 + BC03_02 + BC03_03
-
-  # Shared awareness (bridges FC_RC and BO_RC)
-  AW    =~ TOM + SAW
-
-  # Note: FC_BS excluded (AVE=.037, omega=.136 — collapses)
-"
-
-# Filter to available items
-fo_syntax_clean <- fo_syntax
-for (item in c(items_fc_bs, missing)) {
-  fo_syntax_clean <- gsub(paste0("\\+?\\s*", item, "\\s*"), " ", fo_syntax_clean)
-  fo_syntax_clean <- gsub(paste0(item, "\\s*\\+"), "", fo_syntax_clean)
+# Build syntax programmatically from available items (safe — no string-replace)
+make_factor <- function(name, items, data) {
+  avail <- intersect(items, names(data))
+  if (length(avail) < 2) return(NULL)
+  paste0("  ", name, " =~ ", paste(avail, collapse = " + "))
 }
-cat(fo_syntax_clean)
+
+fo_lines <- c(
+  "  # FC constructs",
+  make_factor("FC_BR", items_fc_br, dat),
+  make_factor("FC_BD", items_fc_bd, dat),
+  make_factor("FC_BC", items_fc_bc, dat),
+  make_factor("FC_BF", items_fc_bf, dat),
+  "  # BO constructs",
+  make_factor("BO_TR", items_bo_tr, dat),
+  make_factor("BO_CO", items_bo_co, dat),
+  make_factor("BO_BF", items_bo_bf, dat)
+)
+
+# Awareness items: only add AW factor if >= 2 items available
+aw_items <- intersect(items_aw, names(dat))
+if (length(aw_items) >= 2) {
+  fo_lines <- c(fo_lines,
+    "  # Shared awareness",
+    paste0("  AW =~ ", paste(aw_items, collapse = " + ")))
+} else {
+  message("AW factor skipped: only ", length(aw_items),
+          " awareness items available (", paste(aw_items, collapse=","), ")")
+}
+
+fo_lines <- Filter(Negate(is.null), fo_lines)
+fo_syntax_clean <- paste(fo_lines, collapse = "\n")
+cat(fo_syntax_clean, "\n")
 ```
 
 ```{r}
