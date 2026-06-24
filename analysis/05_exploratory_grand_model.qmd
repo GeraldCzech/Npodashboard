@@ -26,6 +26,7 @@ source(here::here("R", "11_fit_helpers.R"))
 source(here::here("R", "20_fit_cfa.R"))
 source(here::here("R", "10_datasets.R"))
 stopifnot(exists("DATASETS"))
+`%||%` <- function(a, b) if (!is.null(a)) a else b
 
 # Strategy: fit each model on its own large sample, extract factor scores,
 # then join by REF to get cases present in all three models.
@@ -66,25 +67,54 @@ fs_bo <- fit_and_score(cfa_bo_original(),
 fs_ro <- fit_and_score(cfa_ro_original(),
                        DATASETS$ro, "RO.", "Romero (n=2008)")
 
-# Join by REF — keeps only cases present in all three models
-if (!is.null(fs_fc) && !is.null(fs_bo) && !is.null(fs_ro) &&
-    all(c("REF") %in% c(names(fs_fc), names(fs_bo), names(fs_ro)))) {
-  fs_all <- fs_fc |>
-    dplyr::inner_join(fs_bo, by = "REF", suffix = c("","_bo")) |>
-    dplyr::inner_join(fs_ro, by = "REF", suffix = c("","_ro")) |>
-    dplyr::select(-REF)
-} else {
-  # Fallback: cbind if no REF (same row order assumed)
-  message("No REF column — assuming matched row order")
-  parts <- Filter(function(x) !is.null(x) && "REF" %in% names(x) == FALSE,
-                  list(fs_fc, fs_bo, fs_ro))
-  fs_all <- do.call(cbind, lapply(parts, function(x) x[, names(x) != "REF"]))
+# FC and BO share the same qnr1 dataset (same rows, same order)
+# → direct cbind is safe; no REF alignment needed
+# RO comes from qnr2 — align via cross sample rows if REF available
+
+drop_ref <- function(df) {
+  if (is.null(df)) return(NULL)
+  df[, names(df) != "REF", drop = FALSE]
 }
 
-fs_all <- fs_all[, !duplicated(names(fs_all)), drop = FALSE]
-fs_complete <- fs_all[complete.cases(fs_all), ]
+if (!is.null(fs_fc) && !is.null(fs_bo)) {
+  # FC + BO: same qnr1 data, same row order
+  fs_fc_clean <- drop_ref(fs_fc)
+  fs_bo_clean <- drop_ref(fs_bo)
+  fs_fcbo <- cbind(fs_fc_clean, fs_bo_clean)
+  message("FC+BO combined: ", nrow(fs_fcbo), " rows, ", ncol(fs_fcbo), " cols")
+} else {
+  fs_fcbo <- drop_ref(fs_fc) %||% drop_ref(fs_bo)
+}
 
-message("Joined factor score matrix: ", ncol(fs_all), " columns, ",
+# Attach RO if available and REF allows alignment
+if (!is.null(fs_ro)) {
+  has_ref_fc  <- "REF" %in% names(DATASETS$fc)
+  has_ref_ro  <- "REF" %in% names(DATASETS$ro)
+  has_ref_fs  <- "REF" %in% names(fs_ro)
+
+  if (has_ref_fc && has_ref_ro && has_ref_fs) {
+    message("Aligning RO via REF...")
+    ref_fc <- DATASETS$fc$REF
+    ref_ro  <- DATASETS$ro$REF
+    idx     <- match(ref_fc, ref_ro)
+    ro_clean <- drop_ref(fs_ro)[idx, , drop=FALSE]
+    fs_all  <- cbind(fs_fcbo, ro_clean)
+    message("Aligned by REF: ", sum(!is.na(idx)), " FC rows matched to RO")
+  } else {
+    message("No REF for RO alignment — using FC+BO only for grand model")
+    message("(RO factor scores available but not row-aligned to FC/BO)")
+    fs_all <- fs_fcbo
+  }
+} else {
+  fs_all <- fs_fcbo
+}
+
+if (is.null(fs_all) || ncol(fs_all) == 0)
+  stop("No factor scores available. Check CFA convergence messages above.")
+
+fs_all     <- fs_all[, !duplicated(names(fs_all)), drop = FALSE]
+fs_complete <- fs_all[complete.cases(fs_all), ]
+message("Factor score matrix: ", ncol(fs_all), " cols, ",
         nrow(fs_complete), " complete cases")
 print(names(fs_all))
 ```
