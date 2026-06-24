@@ -1,0 +1,207 @@
+---
+title: "Exploratory Grand Model (All Three Architectures)"
+subtitle: "BBB / BUB / BRB — factor scores from FC + BO + RO, joined by REF"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r}
+#| label: setup
+#| cache: false
+source(here::here("R", "00_paths.R"))
+source(here::here("R", "01_packages.R"))
+source(here::here("R", "12_lavaan_models.R"))
+source(here::here("R", "11_fit_helpers.R"))
+source(here::here("R", "20_fit_cfa.R"))
+source(here::here("R", "10_datasets.R"))
+stopifnot(exists("DATASETS"))
+
+# Strategy: fit each model on its own large sample, extract factor scores,
+# then join by REF to get cases present in all three models.
+# This avoids the small-n and missing-item problems of DATASETS$cross.
+
+fit_and_score <- function(syntax, data, prefix, label,
+                          estimator = "MLR") {
+  message("Fitting ", label, " (n=", nrow(data), ", est=", estimator, ")")
+  fit <- tryCatch(
+    lavaan::cfa(syntax, data = data, estimator = estimator,
+                missing = if (estimator == "MLR") "fiml" else "pairwise",
+                std.lv = TRUE),
+    error = function(e) { message(label, " error: ", e$message); NULL })
+  if (is.null(fit) || !lavaan::lavInspect(fit, "converged")) {
+    message(label, ": did not converge"); return(NULL)
+  }
+  fs <- tryCatch(as.data.frame(lavaan::lavPredict(fit)),
+                 error = function(e) { message(label, " lavPredict: ", e$message); NULL })
+  if (is.null(fs) || ncol(fs) == 0) return(NULL)
+  names(fs) <- paste0(prefix, names(fs))
+  # Attach REF for joining
+  if ("REF" %in% names(data)) fs$REF <- data$REF
+  message(label, " OK — ", ncol(fs)-1, " factor scores")
+  fs
+}
+```
+
+# Stage 1 — Extract factor scores per architecture
+
+```{r}
+#| label: factor-scores
+#| cache: true
+
+fs_fc <- fit_and_score(cfa_fc_higher_order_original(),
+                       DATASETS$fc, "FC.", "Faircloth (n=2038)")
+fs_bo <- fit_and_score(cfa_bo_original(),
+                       DATASETS$bo, "BO.", "Boenigk (n=2038)")
+fs_ro <- fit_and_score(cfa_ro_original(),
+                       DATASETS$ro, "RO.", "Romero (n=2008)")
+
+# Join by REF — keeps only cases present in all three models
+if (!is.null(fs_fc) && !is.null(fs_bo) && !is.null(fs_ro) &&
+    all(c("REF") %in% c(names(fs_fc), names(fs_bo), names(fs_ro)))) {
+  fs_all <- fs_fc |>
+    dplyr::inner_join(fs_bo, by = "REF", suffix = c("","_bo")) |>
+    dplyr::inner_join(fs_ro, by = "REF", suffix = c("","_ro")) |>
+    dplyr::select(-REF)
+} else {
+  # Fallback: cbind if no REF (same row order assumed)
+  message("No REF column — assuming matched row order")
+  parts <- Filter(function(x) !is.null(x) && "REF" %in% names(x) == FALSE,
+                  list(fs_fc, fs_bo, fs_ro))
+  fs_all <- do.call(cbind, lapply(parts, function(x) x[, names(x) != "REF"]))
+}
+
+fs_all <- fs_all[, !duplicated(names(fs_all)), drop = FALSE]
+fs_complete <- fs_all[complete.cases(fs_all), ]
+
+message("Joined factor score matrix: ", ncol(fs_all), " columns, ",
+        nrow(fs_complete), " complete cases")
+print(names(fs_all))
+```
+
+# Stage 2 — Latent correlation matrix
+
+```{r}
+#| label: latent-correlations
+if (nrow(fs_complete) < 10 || ncol(fs_complete) < 2)
+  stop("Too few complete cases or columns — check Stage 1 output.")
+
+cor_mat <- cor(fs_complete, method = "pearson")
+round(cor_mat, 2) |> as.data.frame() |>
+  tibble::rownames_to_column("Latent") |>
+  gt::gt() |>
+  gt::tab_header(
+    "Pairwise correlations among architecture factor scores",
+    subtitle = paste0("n = ", nrow(fs_complete), " cases present in all three models")
+  ) |>
+  gt::fmt_number(where(is.numeric), decimals = 2) |>
+  gt::sub_missing(missing_text = "—")
+```
+
+# Stage 3 — EFA on factor score matrix
+
+```{r}
+#| label: efa-latents
+#| cache: true
+if (nrow(fs_complete) >= 30 && ncol(fs_complete) >= 3) {
+  pa <- psych::fa.parallel(fs_complete, fm = "ml", fa = "fa",
+                            n.iter = 50, plot = FALSE)
+  n_fa <- max(2, pa$nfact)
+  message("Parallel analysis suggests ", n_fa, " factor(s)")
+
+  fa_res <- psych::fa(fs_complete, nfactors = n_fa,
+                      rotate = "oblimin", fm = "ml")
+  print(psych::fa.sort(fa_res), digits = 2, cut = 0.25)
+}
+```
+
+# Stage 4 — BBB / BUB / BRB second-order CFA on factor scores
+
+```{r}
+#| label: bbb-bub-brb
+#| cache: true
+block_labels <- list(
+  BBB = c("FC.FC_BR","FC.FC_BD","FC.FC_BF","BO.BO_BF","BO.BO_RC",
+           "RO.RO_BF","RO.RO_BS"),
+  BUB = c("FC.FC_BC","FC.FC_BS",
+           "RO.RO_BI","RO.RO_BA","RO.RO_BD","RO.RO_BR"),
+  BRB = c("BO.BO_TR","BO.BO_CO",
+           "RO.RO_AC","RO.RO_EC","RO.RO_ID")
+)
+
+available <- names(fs_complete)
+bbb <- intersect(block_labels$BBB, available)
+bub <- intersect(block_labels$BUB, available)
+brb <- intersect(block_labels$BRB, available)
+
+message("BBB (", length(bbb), "): ", paste(bbb, collapse=", "))
+message("BUB (", length(bub), "): ", paste(bub, collapse=", "))
+message("BRB (", length(brb), "): ", paste(brb, collapse=", "))
+
+if (any(c(length(bbb), length(bub), length(brb)) < 2))
+  stop("At least one block has < 2 indicators — adjust block_labels above")
+
+so_syntax <- paste(
+  paste0("BBB =~ ", paste(bbb, collapse=" + ")),
+  paste0("BUB =~ ", paste(bub, collapse=" + ")),
+  paste0("BRB =~ ", paste(brb, collapse=" + ")),
+  sep = "\n"
+)
+cat(so_syntax, "\n")
+
+fit_so <- tryCatch(
+  lavaan::cfa(so_syntax, data = fs_complete,
+              estimator = "MLR", std.lv = TRUE),
+  error = function(e) { message("SO-CFA error: ", e$message); NULL })
+
+if (!is.null(fit_so) && lavaan::lavInspect(fit_so, "converged")) {
+  fm <- lavaan::fitMeasures(fit_so,
+          c("chisq","df","cfi","tli","rmsea","srmr","aic","bic"))
+  message(sprintf("SO-CFA: CFI=%.3f TLI=%.3f RMSEA=%.3f SRMR=%.3f",
+                  fm["cfi"],fm["tli"],fm["rmsea"],fm["srmr"]))
+
+  std <- lavaan::standardizedSolution(fit_so)
+  std[std$op == "=~", c("lhs","rhs","est.std","pvalue")] |>
+    dplyr::rename(Block=lhs, Latent=rhs, lambda=est.std, p=pvalue) |>
+    dplyr::mutate(dplyr::across(c(lambda,p), ~round(.x,3))) |>
+    gt::gt() |>
+    gt::tab_header("BBB / BUB / BRB — second-order loadings on factor scores")
+
+  # Inter-block correlations
+  cors <- std[std$op == "~~" & std$lhs != std$rhs &
+              std$lhs %in% c("BBB","BUB","BRB"),
+              c("lhs","rhs","est.std")]
+  if (nrow(cors) > 0) {
+    cat("\nInter-block correlations:\n")
+    print(cors)
+  }
+}
+```
+
+# Stage 5 — Grand brand equity (third order, eval: false)
+
+```{r}
+#| label: grand-be
+#| eval: false
+grand_syntax <- paste(so_syntax, "\nGBE =~ BBB + BUB + BRB", sep="\n")
+fit_grand <- tryCatch(
+  lavaan::cfa(grand_syntax, data=fs_complete, estimator="MLR", std.lv=TRUE),
+  error = function(e) NULL)
+if (!is.null(fit_grand) && lavaan::lavInspect(fit_grand,"converged"))
+  print(lavaan::fitMeasures(fit_grand, c("cfi","tli","rmsea","srmr","aic","bic")))
+```
+
+# Session info {.unnumbered}
+```{r}
+sessionInfo()
+```
