@@ -167,7 +167,9 @@ if (lavaan::lavInspect(fit_fo, "converged")) {
 so_syntax <- paste(
   fo_syntax_clean,
   "\n# Second-order blocks",
-  paste0("BBB =~ FC_BR + FC_BD + FC_BF + BO_BF",
+  # Build BBB dynamically from factors actually in the first-order model
+  paste0("BBB =~ FC_BR + FC_BD + FC_BF",
+         if ("BO_BF" %in% gsub(" =~.*","",fo_lines)) " + BO_BF" else "",
          if (length(aw_items) >= 2) " + AW" else ""),
   "BUB =~ FC_BC",
   "BRB =~ BO_TR + BO_CO",
