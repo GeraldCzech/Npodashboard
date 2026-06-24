@@ -172,7 +172,7 @@ so_syntax <- paste(
   "BUB =~ FC_BC",
   "BRB =~ BO_TR + BO_CO",
   "\n# Fix BUB residual (single indicator)",
-  "FC_BC ~~ 0.10 * FC_BC"
+  "FC_BC ~~ 0.10 * FC_BC",
   sep = "\n"
 )
 
