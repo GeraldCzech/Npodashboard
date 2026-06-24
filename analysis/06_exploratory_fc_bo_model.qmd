@@ -1,0 +1,263 @@
+---
+title: "Exploratory FC+BO Grand Model"
+subtitle: "BBB / BUB / BRB — item-level second-order model (Faircloth + Boenigk, n = 2,038)"
+date: today
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    number-sections: true
+    df-print: kable
+    embed-resources: true
+execute:
+  echo: true
+  warning: false
+  message: false
+  cache: true
+---
+
+```{r}
+#| label: setup
+#| cache: false
+source(here::here("R", "00_paths.R"))
+source(here::here("R", "01_packages.R"))
+source(here::here("R", "12_lavaan_models.R"))
+source(here::here("R", "11_fit_helpers.R"))
+source(here::here("R", "20_fit_cfa.R"))
+source(here::here("R", "10_datasets.R"))
+stopifnot(exists("DATASETS"))
+
+# FC and BO share the same qnr1 respondents (n = 2,038)
+# Use DATASETS$fc which has all FC + BO items + TOM/SAW
+dat <- DATASETS$fc
+message("Dataset: n = ", nrow(dat), " | columns: ", ncol(dat))
+
+# Item sets (from external_Sources.R / 01_lavaan_models.R)
+items_fc_br <- c("FC01_01","FC01_02","FC01_03")
+items_fc_bd <- c("FC01_04","FC01_05","FC01_06")
+items_fc_bc <- c("FC02_01","FC02_02","FC02_03","FC02_04",
+                  "FC02_05","FC02_06","FC02_07","FC02_08")
+items_fc_bs <- c("FC02_09","FC02_10_rev","FC02_11","FC02_12_rev") # weak: AVE=.037
+items_fc_bf <- c("FC03_01","FC03_02","FC03_03")
+items_bo_tr <- c("B101_01","B101_02","B101_03")
+items_bo_co <- c("B102_01","B102_02","B102_03")
+items_bo_bf <- c("BC03_01","BC03_02","BC03_03")
+items_aw    <- c("TOM","SAW")  # shared across FC_RC and BO_RC — used once
+
+# Check availability
+all_items <- c(items_fc_br, items_fc_bd, items_fc_bc, items_fc_bs,
+               items_fc_bf, items_bo_tr, items_bo_co, items_bo_bf, items_aw)
+missing <- setdiff(all_items, names(dat))
+if (length(missing) > 0) message("Missing items: ", paste(missing, collapse=", "))
+available <- intersect(all_items, names(dat))
+message("Available items: ", length(available), "/", length(all_items))
+```
+
+# Stage 1 — EFA on raw items (FC + BO combined)
+
+```{r}
+#| label: efa-items
+#| cache: true
+efa_items <- intersect(c(items_fc_br, items_fc_bd, items_fc_bc,
+                          items_fc_bf, items_bo_tr, items_bo_co,
+                          items_bo_bf, items_aw), names(dat))
+# Exclude FC_BS: AVE=.037, omega=.136 — collapses in every model
+# Include only if you want to see the collapse empirically
+efa_data <- dat[, efa_items, drop = FALSE]
+efa_data <- efa_data[complete.cases(efa_data), ]
+message("EFA: ", ncol(efa_data), " items, n = ", nrow(efa_data))
+
+# Parallel analysis to choose number of factors
+pa <- psych::fa.parallel(efa_data, fm = "ml", fa = "fa",
+                          n.iter = 50, plot = FALSE)
+n_fa <- max(2, pa$nfact)
+message("Parallel analysis suggests ", n_fa, " factor(s)")
+
+# EFA with oblique rotation
+fa_res <- psych::fa(efa_data, nfactors = n_fa,
+                    rotate = "oblimin", fm = "ml",
+                    scores = "regression")
+print(psych::fa.sort(fa_res), digits = 2, cut = 0.30)
+```
+
+# Stage 2 — First-order CFA (all FC + BO constructs)
+
+```{r}
+#| label: fo-cfa-syntax
+# Shared awareness items used once (AW) to avoid dual-loading
+fo_syntax <- "
+  # FC constructs
+  FC_BR =~ FC01_01 + FC01_02 + FC01_03
+  FC_BD =~ FC01_04 + FC01_05 + FC01_06
+  FC_BC =~ FC02_01 + FC02_02 + FC02_03 + FC02_04 +
+           FC02_05 + FC02_06 + FC02_07 + FC02_08
+  FC_BF =~ FC03_01 + FC03_02 + FC03_03
+
+  # BO constructs
+  BO_TR =~ B101_01 + B101_02 + B101_03
+  BO_CO =~ B102_01 + B102_02 + B102_03
+  BO_BF =~ BC03_01 + BC03_02 + BC03_03
+
+  # Shared awareness (bridges FC_RC and BO_RC)
+  AW    =~ TOM + SAW
+
+  # Note: FC_BS excluded (AVE=.037, omega=.136 — collapses)
+"
+
+# Filter to available items
+fo_syntax_clean <- fo_syntax
+for (item in c(items_fc_bs, missing)) {
+  fo_syntax_clean <- gsub(paste0("\\+?\\s*", item, "\\s*"), " ", fo_syntax_clean)
+  fo_syntax_clean <- gsub(paste0(item, "\\s*\\+"), "", fo_syntax_clean)
+}
+cat(fo_syntax_clean)
+```
+
+```{r}
+#| label: fo-cfa-fit
+#| cache: true
+fit_fo <- tryCatch(
+  lavaan::cfa(fo_syntax_clean, data = dat,
+              estimator = "WLSMV",
+              ordered   = intersect(available, names(dat)),
+              std.lv    = TRUE),
+  error = function(e) {
+    message("WLSMV failed: ", e$message, " — trying MLR")
+    lavaan::cfa(fo_syntax_clean, data = dat,
+                estimator = "MLR", missing = "fiml",
+                std.lv = TRUE)
+  })
+
+if (lavaan::lavInspect(fit_fo, "converged")) {
+  fm <- lavaan::fitMeasures(fit_fo,
+          c("chisq","df","cfi","tli","rmsea","srmr"))
+  message(sprintf("FO-CFA: CFI=%.3f TLI=%.3f RMSEA=%.3f SRMR=%.3f",
+                  fm["cfi"],fm["tli"],fm["rmsea"],fm["srmr"]))
+
+  std <- lavaan::standardizedSolution(fit_fo)
+  std[std$op == "=~", c("lhs","rhs","est.std","pvalue")] |>
+    dplyr::rename(factor=lhs, item=rhs, lambda=est.std, p=pvalue) |>
+    dplyr::mutate(dplyr::across(c(lambda,p), ~round(.x,3))) |>
+    gt::gt() |>
+    gt::tab_header("First-order CFA — standardised loadings (FC + BO combined)")
+} else {
+  message("First-order CFA did not converge.")
+}
+```
+
+# Stage 3 — BBB / BUB / BRB second-order CFA
+
+```{r}
+#| label: so-cfa-syntax
+# BBB — Brand Building Block:   recall, differentiation, familiarity, awareness
+# BUB — Brand Usage Block:      associations (only FC_BC available without FC_BS)
+# BRB — Brand Relationship Block: trust, commitment
+#
+# NOTE: BUB with only one first-order factor (FC_BC) is just-identified;
+# we add FC_BD as a dual-member (awareness + usage) OR collapse BUB into BBB
+# pending EFA results. Mark as exploratory.
+
+so_syntax <- paste(
+  fo_syntax_clean,
+  "\n# Second-order blocks",
+  "BBB =~ FC_BR + FC_BD + FC_BF + BO_BF + AW",
+  "BUB =~ FC_BC",          # single indicator — fixed residual
+  "BRB =~ BO_TR + BO_CO",
+  "\n# Fix BUB residual (single indicator, not identified otherwise)",
+  "FC_BC ~~ 0.10 * FC_BC",   # small residual — exploratory
+  sep = "\n"
+)
+
+# Alternative: 2-block solution (if BUB too sparse)
+so_syntax_2block <- paste(
+  fo_syntax_clean,
+  "\n# Two-block solution (BBB absorbs FC_BC)",
+  "BBB =~ FC_BR + FC_BD + FC_BF + BO_BF + AW + FC_BC",
+  "BRB =~ BO_TR + BO_CO",
+  sep = "\n"
+)
+cat("--- 3-block syntax ---\n", so_syntax, "\n")
+```
+
+```{r}
+#| label: so-cfa-fit
+#| cache: true
+run_so <- function(syntax, label) {
+  fit <- tryCatch(
+    lavaan::cfa(syntax, data = dat, estimator = "MLR",
+                missing = "fiml", std.lv = TRUE),
+    error = function(e) { message(label, " failed: ", e$message); NULL })
+  if (is.null(fit) || !lavaan::lavInspect(fit, "converged")) {
+    message(label, ": did not converge"); return(NULL)
+  }
+  fm <- lavaan::fitMeasures(fit, c("chisq","df","cfi","tli","rmsea","srmr","aic","bic"))
+  message(sprintf("%s: CFI=%.3f TLI=%.3f RMSEA=%.3f SRMR=%.3f AIC=%.0f",
+                  label, fm["cfi"],fm["tli"],fm["rmsea"],fm["srmr"],fm["aic"]))
+  fit
+}
+
+fit_3block <- run_so(so_syntax,        "3-block (BBB/BUB/BRB)")
+fit_2block <- run_so(so_syntax_2block, "2-block (BBB/BRB)")
+
+# Show loadings for best-fitting model
+best_fit <- if (!is.null(fit_3block) &&
+                lavaan::fitMeasures(fit_3block,"cfi") >
+                lavaan::fitMeasures(fit_2block,"cfi")) fit_3block else fit_2block
+best_label <- if (identical(best_fit, fit_3block)) "3-block" else "2-block"
+
+if (!is.null(best_fit)) {
+  std <- lavaan::standardizedSolution(best_fit)
+  std[std$op == "=~" & std$lhs %in% c("BBB","BUB","BRB"),
+      c("lhs","rhs","est.std","pvalue")] |>
+    dplyr::rename(Block=lhs, Factor=rhs, lambda=est.std, p=pvalue) |>
+    dplyr::mutate(dplyr::across(c(lambda,p), ~round(.x,3))) |>
+    gt::gt() |>
+    gt::tab_header(paste("Second-order loadings —", best_label, "solution"))
+}
+```
+
+# Stage 4 — Inter-block correlations and model comparison
+
+```{r}
+#| label: model-comparison
+#| cache: false
+if (!is.null(fit_3block) && !is.null(fit_2block)) {
+  fits <- list(
+    `3-block (BBB/BUB/BRB)` = fit_3block,
+    `2-block (BBB+BRB)`     = fit_2block
+  )
+  purrr::imap_dfr(fits, function(fit, label) {
+    fm <- lavaan::fitMeasures(fit, c("chisq","df","cfi","tli","rmsea","srmr","aic","bic"))
+    tibble::tibble(
+      Solution = label,
+      CFI   = round(fm["cfi"],  3), TLI  = round(fm["tli"],  3),
+      RMSEA = round(fm["rmsea"],3), SRMR = round(fm["srmr"], 3),
+      AIC   = round(fm["aic"],  0), BIC  = round(fm["bic"],  0)
+    )
+  }) |>
+    gt::gt() |>
+    gt::tab_header("Model comparison: 3-block vs 2-block solution",
+                   subtitle = "Lower AIC/BIC = better; CFI/TLI > .90 = acceptable")
+}
+```
+
+# Stage 5 — Grand brand equity (GBE), third order
+
+```{r}
+#| label: grand-be
+#| eval: false
+# Activate once 3-block or 2-block converges cleanly
+grand_syntax <- paste(so_syntax,
+                      "\nGBE =~ BBB + BRB", sep = "\n")
+fit_grand <- tryCatch(
+  lavaan::cfa(grand_syntax, data = dat, estimator = "MLR",
+              missing = "fiml", std.lv = TRUE),
+  error = function(e) NULL)
+if (!is.null(fit_grand) && lavaan::lavInspect(fit_grand, "converged"))
+  print(lavaan::fitMeasures(fit_grand, c("cfi","tli","rmsea","srmr","aic","bic")))
+```
+
+# Session info {.unnumbered}
+```{r}
+sessionInfo()
+```
