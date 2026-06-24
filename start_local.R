@@ -32,12 +32,9 @@ if (length(missing) > 0) {
 #   - fragebogen.rds  (optional)
 #   - analysis.rds    (optional)
 
-DATA_DIR_LOCAL <- readline(
-  "Pfad zum Datenordner (Enter = aktuelles Verzeichnis): "
-)
-if (!nzchar(trimws(DATA_DIR_LOCAL))) {
-  DATA_DIR_LOCAL <- getwd()
-}
+# Pfad kommt aus der Umgebungsvariable CBE_DATA_DIR (gesetzt von start_local.bat)
+# oder aus dem aktuellen Verzeichnis als Fallback
+DATA_DIR_LOCAL <- Sys.getenv("CBE_DATA_DIR", unset = getwd())
 DATA_DIR_LOCAL <- normalizePath(DATA_DIR_LOCAL, winslash = "/", mustWork = FALSE)
 
 # Umgebungsvariable setzen — wird von R/00_paths.R gelesen
