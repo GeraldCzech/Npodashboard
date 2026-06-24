@@ -1,74 +1,100 @@
 @echo off
 REM ===========================================================================
 REM run_pipeline.bat  —  Gesamte Pipeline auf Windows
-REM ===========================================================================
-REM Reihenfolge:
-REM   1. Daten laden (daten_standardisiert.RData)
-REM   2. Quarto rendern: 01_main_analysis + 02_supplements + 03_bootstrap
-REM   3. Bootstrap (optional, dauert Stunden — standardmässig deaktiviert)
+REM HINWEIS: Aus cmd.exe starten (nicht PowerShell):
+REM   Win+R -> cmd -> cd C:\...\Npodashboard -> run_pipeline.bat
 REM ===========================================================================
 
 REM ── KONFIGURATION (hier anpassen) ──────────────────────────────────────────
 set DATA_DIR=C:\Users\Gerald\npodashboard\home\gerald\10787172\scripts\research2\output
 set BOOT_B=1000
 set BOOT_NCORES=3
-REM Bootstrap mitrechnen? 1 = ja (dauert Stunden), 0 = nein
 set RUN_BOOTSTRAP=0
 REM ───────────────────────────────────────────────────────────────────────────
 
 cd /d "%~dp0"
 set CBE_DATA_DIR=%DATA_DIR%
 
-echo.
-echo ============================================
-echo  NPO Dashboard – Gesamte Pipeline
-echo  Daten: %DATA_DIR%
-echo  Bootstrap: %RUN_BOOTSTRAP% (B=%BOOT_B%)
-echo ============================================
-echo.
+REM --- Rscript.exe automatisch finden ----------------------------------------
+set RSCRIPT=
+where Rscript >nul 2>&1 && set RSCRIPT=Rscript
 
-REM --- Schritt 1: Umgebung prüfen -------------------------------------------
-echo [1/4] Pruefe Umgebung...
-Rscript -e "source('start_local.R')" || goto :error
+if "%RSCRIPT%"=="" (
+    for /d %%v in ("%ProgramFiles%\R\R-*") do set RSCRIPT=%%v\bin\Rscript.exe
+)
+if "%RSCRIPT%"=="" (
+    for /d %%v in ("%ProgramFiles(x86)%\R\R-*") do set RSCRIPT=%%v\bin\Rscript.exe
+)
+if "%RSCRIPT%"=="" (
+    echo FEHLER: R nicht gefunden. Bitte R installieren:
+    echo   https://cran.r-project.org/bin/windows/base/
+    echo Oder Pfad manuell setzen:  set RSCRIPT=C:\Programme\R\R-4.x.x\bin\Rscript.exe
+    pause & exit /b 1
+)
+echo Rscript gefunden: %RSCRIPT%
 
-REM --- Schritt 2: Hauptanalyse rendern --------------------------------------
-echo.
-echo [2/4] Rendere 01_main_analysis.qmd...
-quarto render analysis/01_main_analysis.qmd || goto :error
-
-REM --- Schritt 3: Supplement rendern ----------------------------------------
-echo.
-echo [3/4] Rendere 02_supplements_addendum.qmd...
-quarto render analysis/02_supplements_addendum.qmd || goto :error
-
-REM --- Schritt 4: Bootstrap (optional) + Bootstrap-Ergebnisse ---------------
-if "%RUN_BOOTSTRAP%"=="1" (
-    echo.
-    echo [4/4] Starte Bootstrap ^(B=%BOOT_B%, %BOOT_NCORES% Kerne^)...
-    echo       Kann mehrere Stunden dauern. Fenster offen lassen.
-    Rscript -e ^
-      "Sys.setenv(CBE_DATA_DIR='%DATA_DIR%', BOOT_B='%BOOT_B%', BOOT_NCORES='%BOOT_NCORES%'); source('run_bootstrap.R')" ^
-      || goto :error
-    echo.
-    echo Rendere 03_bootstrap_results.qmd...
-    quarto render analysis/03_bootstrap_results.qmd || goto :error
-) else (
-    echo.
-    echo [4/4] Bootstrap uebersprungen ^(RUN_BOOTSTRAP=0^).
-    echo       Bootstrap-CSV bereits vorhanden? Dann rendern mit:
-    echo       quarto render analysis/03_bootstrap_results.qmd
+REM --- Quarto finden ---------------------------------------------------------
+set QUARTO=
+where quarto >nul 2>&1 && set QUARTO=quarto
+if "%QUARTO%"=="" (
+    if exist "%LOCALAPPDATA%\Programs\Quarto\bin\quarto.cmd" (
+        set QUARTO=%LOCALAPPDATA%\Programs\Quarto\bin\quarto.cmd
+    )
+)
+if "%QUARTO%"=="" (
+    echo WARNUNG: Quarto nicht gefunden - nur R-Skripte werden ausgefuehrt.
+    echo Quarto installieren: https://quarto.org/docs/get-started/
 )
 
 echo.
 echo ============================================
-echo  Fertig. Outputs in outputs\rendered\
+echo  NPO Dashboard - Gesamte Pipeline
+echo  Daten:     %DATA_DIR%
+echo  Bootstrap: %RUN_BOOTSTRAP% (B=%BOOT_B%)
+echo ============================================
+echo.
+
+REM --- Schritt 1: Umgebung laden ---------------------------------------------
+echo [1/4] Lade Module und Daten...
+"%RSCRIPT%" start_local.R || goto :error
+
+REM --- Schritt 2: Hauptanalyse -----------------------------------------------
+if not "%QUARTO%"=="" (
+    echo.
+    echo [2/4] Rendere 01_main_analysis.qmd...
+    "%QUARTO%" render analysis/01_main_analysis.qmd || goto :error
+
+    echo.
+    echo [3/4] Rendere 02_supplements_addendum.qmd...
+    "%QUARTO%" render analysis/02_supplements_addendum.qmd || goto :error
+) else (
+    echo [2/4] Quarto fehlt - Rendering uebersprungen.
+    echo [3/4] ^(ebenso^)
+)
+
+REM --- Schritt 4: Bootstrap --------------------------------------------------
+if "%RUN_BOOTSTRAP%"=="1" (
+    echo.
+    echo [4/4] Bootstrap ^(B=%BOOT_B%, %BOOT_NCORES% Kerne^) - kann Stunden dauern...
+    set BOOT_B=%BOOT_B%
+    set BOOT_NCORES=%BOOT_NCORES%
+    "%RSCRIPT%" run_bootstrap.R || goto :error
+    if not "%QUARTO%"=="" (
+        "%QUARTO%" render analysis/03_bootstrap_results.qmd || goto :error
+    )
+) else (
+    echo [4/4] Bootstrap uebersprungen ^(RUN_BOOTSTRAP=0^).
+)
+
+echo.
+echo ============================================
+echo  Fertig!
 echo ============================================
 goto :end
 
 :error
 echo.
-echo FEHLER aufgetreten – Pipeline abgebrochen.
-echo Letzter Fehlercode: %ERRORLEVEL%
+echo FEHLER - Pipeline abgebrochen ^(Code: %ERRORLEVEL%^)
 
 :end
 pause
