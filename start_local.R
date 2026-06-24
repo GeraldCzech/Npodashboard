@@ -11,6 +11,9 @@
 # ==============================================================================
 
 # --- 1. Pakete installieren (einmalig) ----------------------------------------
+# CRAN-Mirror explizit setzen (nötig für nicht-interaktive Rscript-Ausführung)
+options(repos = c(CRAN = "https://cloud.r-project.org"))
+
 required <- c(
   "here", "dplyr", "tidyr", "tibble", "purrr", "readr",
   "stringr", "forcats", "glue", "haven",

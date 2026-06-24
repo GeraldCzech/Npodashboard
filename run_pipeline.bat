@@ -17,7 +17,11 @@ set CBE_DATA_DIR=%DATA_DIR%
 
 REM --- Rscript.exe automatisch finden ----------------------------------------
 set RSCRIPT=
-where Rscript >nul 2>&1 && set RSCRIPT=Rscript
+REM Zuerst bekannten R 4.6.0 Pfad prüfen
+if exist "%LOCALAPPDATA%\Programs\R\R-4.6.0\bin\Rscript.exe" (
+    set RSCRIPT=%LOCALAPPDATA%\Programs\R\R-4.6.0\bin\Rscript.exe
+)
+if "%RSCRIPT%"=="" where Rscript >nul 2>&1 && set RSCRIPT=Rscript
 
 if "%RSCRIPT%"=="" (
     for /d %%v in ("%ProgramFiles%\R\R-*") do set RSCRIPT=%%v\bin\Rscript.exe
