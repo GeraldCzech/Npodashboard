@@ -210,10 +210,11 @@ fit_3block <- run_so(so_syntax,        "3-block (BBB/BUB/BRB)")
 fit_2block <- run_so(so_syntax_2block, "2-block (BBB/BRB)")
 
 # Show loadings for best-fitting model
-best_fit <- if (!is.null(fit_3block) &&
-                lavaan::fitMeasures(fit_3block,"cfi") >
-                lavaan::fitMeasures(fit_2block,"cfi")) fit_3block else fit_2block
+get_cfi <- function(fit) if (!is.null(fit) && lavaan::lavInspect(fit,"converged"))
+  tryCatch(lavaan::fitMeasures(fit,"cfi"), error=function(e) -Inf) else -Inf
+best_fit  <- if (get_cfi(fit_3block) >= get_cfi(fit_2block)) fit_3block else fit_2block
 best_label <- if (identical(best_fit, fit_3block)) "3-block" else "2-block"
+if (is.null(best_fit)) stop("Neither model converged.")
 
 if (!is.null(best_fit)) {
   std <- lavaan::standardizedSolution(best_fit)
