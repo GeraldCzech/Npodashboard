@@ -6,6 +6,8 @@ project:
     - analysis/01_main_analysis.qmd
     - analysis/02_supplements_addendum.qmd
     # 03_bootstrap_results.qmd excluded from default render.
+    # 05_exploratory_grand_model.qmd excluded (exploratory, manual render).
+    # Run: quarto render analysis/05_exploratory_grand_model.qmd
     # Run manually once run_bootstrap.R has finished:
     #   quarto render analysis/03_bootstrap_results.qmd
 

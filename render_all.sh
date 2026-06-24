@@ -54,6 +54,7 @@ renice_rstudio
 render_doc "analysis/01_main_analysis.qmd"
 render_doc "analysis/02_supplements_addendum.qmd"
 # render_doc "analysis/03_bootstrap_results.qmd"  # content merged into 02
+# render_doc "analysis/05_exploratory_grand_model.qmd"  # manual: exploratory grand model
 
 echo "" | tee -a "$LOG"
 echo "============================================================" | tee -a "$LOG"
