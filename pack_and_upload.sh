@@ -25,11 +25,14 @@ echo "============================================" | tee -a "$LOG"
 # --- Dateien einsammeln -------------------------------------------------------
 INCLUDES=()
 
-# 1. Primäre Analysedaten (daten_standardisiert, fragebogen)
+# 1. Primäre Analysedaten — alle bekannten Speicherorte
 for f in \
     "$DATA_PRIMARY/daten_standardisiert.RData" \
     "$DATA_PRIMARY/fragebogen.rds" \
-    "$DATA_PRIMARY/analysis.rds"; do
+    "$DATA_PRIMARY/analysis.rds" \
+    "/home/gerald/10787172/output/fragebogen.rds" \
+    "/home/gerald/10787172/output/analysis.rds" \
+    "/home/gerald/10787172/AdvancedAnalytic/data/fragebogen.rds"; do
   [ -f "$f" ] && INCLUDES+=("$f") && echo "  + $f" | tee -a "$LOG"
 done
 
