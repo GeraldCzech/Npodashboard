@@ -233,6 +233,93 @@ if (!is.null(best_fit)) {
 }
 ```
 
+# Stage 3b — Alternative: AW im Building Block (BBB)
+
+Alternativspezifikation: Awareness als Ergebnis von Brand-Building-Aktivitäten
+(Werbung, PR) → AW in BBB. Familiarity und Recall bleiben in BUB als
+Verarbeitungstiefe des Konsumenten.
+
+```{r}
+#| label: so-cfa-alt
+#| cache: false
+#| message: true
+
+run_block_cfa <- function(bub_items, bbb_items, brb_items, label, dat,
+                           fo_syntax, aw_items) {
+  bub_str <- paste0("BUB =~ ", paste(bub_items, collapse=" + "))
+  bbb_str <- paste0("BBB =~ ", paste(bbb_items, collapse=" + "))
+  brb_str <- paste0("BRB =~ ", paste(brb_items, collapse=" + "))
+  syntax  <- paste(fo_syntax, bub_str, bbb_str, brb_str, sep="
+")
+  fit <- tryCatch(
+    lavaan::cfa(syntax, data=dat, estimator="MLR", missing="fiml", std.lv=TRUE),
+    error=function(e) { message(label, " error: ", e$message); NULL })
+  if (is.null(fit) || !lavaan::lavInspect(fit,"converged")) {
+    message(label, ": did not converge"); return(NULL)
+  }
+  fm <- lavaan::fitMeasures(fit, c("cfi","tli","rmsea","srmr","aic","bic"))
+  message(sprintf("%s: CFI=%.3f RMSEA=%.3f AIC=%.0f", label,
+                  fm["cfi"], fm["rmsea"], fm["aic"]))
+  list(fit=fit, fm=fm, label=label,
+       bub=bub_items, bbb=bbb_items, brb=brb_items)
+}
+
+aw_vec <- if (length(aw_items)>=2) "AW" else character(0)
+
+# Version A (current Chatzi): AW in BUB
+vA <- run_block_cfa(
+  bub_items = c("FC_BF", aw_vec, "FC_BR"),
+  bbb_items = c("FC_BD", "FC_BC"),
+  brb_items = c("BO_TR", "BO_CO"),
+  label = "A: AW in BUB (Chatzi current)", dat=dat,
+  fo_syntax=fo_syntax_clean, aw_items=aw_items)
+
+# Version B (alternative): AW in BBB
+vB <- run_block_cfa(
+  bub_items = c("FC_BF", "FC_BR"),
+  bbb_items = c("FC_BD", "FC_BC", aw_vec),
+  brb_items = c("BO_TR", "BO_CO"),
+  label = "B: AW in BBB (alternative)", dat=dat,
+  fo_syntax=fo_syntax_clean, aw_items=aw_items)
+
+# Version C: AW in BBB, FC_BR in BUB only (clean separation)
+vC <- run_block_cfa(
+  bub_items = c("FC_BF", "FC_BR"),
+  bbb_items = c("FC_BD", "FC_BC", aw_vec),
+  brb_items = c("BO_TR", "BO_CO"),
+  label = "C: AW+Assoc in BBB, Recall+Familiar in BUB", dat=dat,
+  fo_syntax=fo_syntax_clean, aw_items=aw_items)
+
+# Comparison table
+versions <- Filter(Negate(is.null), list(vA, vB, vC))
+if (length(versions) > 0) {
+  purrr::map_dfr(versions, function(v) {
+    tibble::tibble(
+      Version = v$label,
+      BUB     = paste(v$bub, collapse="+"),
+      BBB     = paste(v$bbb, collapse="+"),
+      CFI     = round(v$fm["cfi"],  3),
+      RMSEA   = round(v$fm["rmsea"],3),
+      SRMR    = round(v$fm["srmr"], 3),
+      AIC     = round(v$fm["aic"],  0)
+    )
+  }) |>
+    gt::gt() |>
+    gt::tab_header(
+      "Alternative block assignments — fit comparison",
+      subtitle = "Lower AIC = better; CFI > .90 = acceptable. BRB = BO_TR + BO_CO in all versions."
+    ) |>
+    gt::fmt_number(c(CFI,RMSEA,SRMR), decimals=3) |>
+    gt::fmt_number(AIC, decimals=0)
+}
+
+# Best version for downstream stages
+best_version <- versions[[which.min(sapply(versions, function(v) v$fm["aic"]))]]
+message("Best version (lowest AIC): ", best_version$label)
+fit_best_block <- best_version$fit
+```
+
+
 # Stage 4 — Inter-block correlations and model comparison
 
 ```{r}
