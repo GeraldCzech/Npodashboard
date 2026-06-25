@@ -472,8 +472,9 @@ if (!is.null(fit_network) && lavaan::lavInspect(fit_network,"converged")) {
               BO_TR="#80CFE9", BO_CO="#80CFE9"),
       man = "#E8E8E8"
     ),
-    title = "Network-SEM: BBB → BUB → BRB → Donation"
+    title = FALSE
   )
+  title("Network-SEM: BBB → BUB → BRB → Donation", line=-1)
 }
 ```
 
