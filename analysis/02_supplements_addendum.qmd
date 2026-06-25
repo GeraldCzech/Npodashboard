@@ -110,6 +110,30 @@ gt::gt(source_links) |>
   gt::tab_header("Table S2. Recruitment channel overview")
 ```
 
+```{r}
+#| label: dataset-registry
+#| cache: false
+# Table S3: Dataset registry — sample sizes and available outcomes per architecture
+purrr::imap_dfr(DATASETS[c("fc","bo","ro","cross")], function(dat, nm) {
+  tibble::tibble(
+    Dataset      = nm,
+    Architecture = c(fc="Faircloth",bo="Boenigk & Becker",
+                     ro="Ríos Romero et al.",cross="Cross / Identical-case")[nm],
+    Evaluations  = nrow(dat),
+    Columns      = ncol(dat),
+    `OF02_01 (last donation)`   = sum(!is.na(dat[["OF02_01_num_log"]])),
+    `OF02_02 (annual donation)` = sum(!is.na(dat[["OF02_02_num_log"]])),
+    `OF_Spender (donor status)` = sum(!is.na(dat[["OF_Spender"]]))
+  )
+}) |>
+  gt::gt() |>
+  gt::tab_header(
+    "Table S3. Dataset registry — evaluations and outcome availability by architecture",
+    subtitle = "Evaluation counts differ because of modular questionnaire routing."
+  )
+```
+
+
 # Reliability (omega / CR) and AVE by construct
 
 ```{r}
