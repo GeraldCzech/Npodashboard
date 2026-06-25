@@ -234,11 +234,12 @@ if (!is.null(best_fit)) {
 ```{r}
 #| label: model-comparison
 #| cache: false
-if (!is.null(fit_3block) && !is.null(fit_2block)) {
-  fits <- list(
-    `3-block (BBB/BUB/BRB)` = fit_3block,
-    `2-block (BBB+BRB)`     = fit_2block
-  )
+# Include whichever models converged
+fits <- Filter(Negate(is.null), list(
+  `3-block (BBB/BUB/BRB)` = fit_3block,
+  `2-block (BBB+BRB)`     = fit_2block
+))
+if (length(fits) > 0) {
   purrr::imap_dfr(fits, function(fit, label) {
     fm <- lavaan::fitMeasures(fit, c("chisq","df","cfi","tli","rmsea","srmr","aic","bic"))
     tibble::tibble(
@@ -258,7 +259,8 @@ if (!is.null(fit_3block) && !is.null(fit_2block)) {
 
 ```{r}
 #| label: grand-be
-#| eval: false
+#| eval: true
+#| cache: false
 # Activate once 3-block or 2-block converges cleanly
 grand_syntax <- paste(so_syntax,
                       "\nGBE =~ BBB + BRB", sep = "\n")
