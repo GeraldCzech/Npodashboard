@@ -98,6 +98,32 @@ save_table(cfa_fit_tbl, "paper_table_cfa_fit")
 gt_fit_summary(cfa_fit_tbl, "CFA fit by architecture")
 ```
 
+## Sample sizes by analytical stage
+
+```{r}
+#| label: sample-overview
+#| cache: false
+tibble::tibble(
+  `Analytical stage`     = c("qnr1: Faircloth + Boenigk",
+                             "qnr2: R\u00edos Romero et al.",
+                             "Matched pool (qnr1 \u2229 qnr2)",
+                             "Strict common-case"),
+  Evaluations            = c("2,038", "2,008", "1,393", "266"),
+  Respondents            = c("1,210", "1,226", "732",   "186"),
+  Role                   = c("Model-specific estimation",
+                             "Model-specific estimation",
+                             "Sensitivity basis",
+                             "Identical-case sensitivity test")
+) |>
+  gt::gt() |>
+  gt::tab_header(
+    "Table 2. Sample sizes across analytical stages",
+    subtitle = paste0("1,571 respondents in total. ",
+                      "Common-case = identical-case sensitivity test, not cross-validation.")
+  )
+```
+
+
 ## Outcome mapping check
 
 ```{r}
