@@ -160,7 +160,11 @@ gt::gt(audit) |> gt::tab_header("Table S3. Dataset registry audit")
 
 ```{r}
 #| label: htmt-bo
-htmt_bo <- htmt_manual(DATASETS$bo, construct_items_bo)
+# Filter to items present in DATASETS$bo (BC03 items may be absent)
+bo_items_present <- lapply(construct_items_bo,
+  function(its) its[its %in% names(DATASETS$bo)])
+bo_items_present <- bo_items_present[sapply(bo_items_present, length) >= 2]
+htmt_bo <- htmt_manual(DATASETS$bo, bo_items_present)
 save_t(htmt_bo, "S_htmt_boenigk")
 gt::gt(htmt_bo) |>
   gt::tab_header("Table S4. Boenigk HTMT (Trust × Commitment)",
