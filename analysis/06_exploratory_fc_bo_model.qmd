@@ -329,6 +329,7 @@ if ("OF02_02_num_log" %in% names(dat)) {
   } else {
     message("Classical SEM did not converge.")
 }
+}
 ```
 
 # Stage 7 — Hierarchical model: GBE → BBB → BUB → BRB → Donation
