@@ -390,45 +390,99 @@ if (!is.null(fit_hier) && lavaan::lavInspect(fit_hier,"converged")) {
 }
 ```
 
-# Stage 8 — Network model: partial correlation network of factor scores
+# Stage 8 — Network-SEM: Interaktionsstruktur BBB → BUB → BRB → Donation
+
+Gerichtetes Pfadmodell zwischen den drei Blöcken: Brand Building erzeugt
+Brand Understanding, das wiederum Brand Relationship aufbaut (sequentielle
+Mediation). Direktpfade BBB→BRB und BBB→Donation testen ob Building auch
+unmittelbar auf Geben wirkt.
 
 ```{r}
-#| label: network-model
+#| label: network-sem
 #| cache: false
-if (!requireNamespace("qgraph", quietly=TRUE)) {
-  install.packages("qgraph", repos="https://cloud.r-project.org")
+# Network-SEM: directed paths between second-order blocks
+# BBB → BUB → BRB → Donation (sequential chain + direct paths)
+network_syntax <- paste(
+  fo_syntax_clean,
+  "
+# Second-order measurement (BBB → BUB → BRB Chatzi order)",
+  paste0("BUB =~ FC_BF",
+         if (length(aw_items) >= 2) " + AW" else "",
+         " + FC_BR"),
+  "BBB =~ FC_BD + FC_BC",
+  "BRB =~ BO_TR + BO_CO",
+  "
+# Network: directed paths between blocks",
+  "BUB ~ BBB",          # Building creates Understanding
+  "BRB ~ BUB + BBB",    # Relationship from Understanding + direct from Building
+  "
+# Outcome",
+  "OF02_02_num_log ~ BRB + BUB + BBB",  # all paths to donation
+  sep = "
+"
+)
+
+fit_network <- tryCatch(
+  lavaan::sem(network_syntax, data = dat, estimator = "MLR",
+              missing = "fiml", std.lv = TRUE),
+  error = function(e) { message("Network-SEM error: ", e$message); NULL })
+
+if (!is.null(fit_network) && lavaan::lavInspect(fit_network,"converged")) {
+  fm  <- lavaan::fitMeasures(fit_network, c("cfi","tli","rmsea","srmr","aic","bic"))
+  std <- lavaan::standardizedSolution(fit_network)
+  r2  <- lavaan::lavInspect(fit_network,"r2")
+
+  message(sprintf("Network-SEM: CFI=%.3f TLI=%.3f RMSEA=%.3f SRMR=%.3f",
+                  fm["cfi"],fm["tli"],fm["rmsea"],fm["srmr"]))
+
+  # Block interaction paths
+  paths <- std[std$op == "~", c("lhs","rhs","est.std","se","pvalue")]
+  names(paths) <- c("Endogen","Exogen","beta","SE","p")
+
+  paths |>
+    dplyr::mutate(dplyr::across(c(beta,SE,p), ~round(.x,3)),
+                  sig = dplyr::case_when(p<.001~"***",p<.01~"**",p<.05~"*",TRUE~"")) |>
+    gt::gt() |>
+    gt::tab_header(
+      "Network-SEM: Interaktionspfade BBB → BUB → BRB → Donation",
+      subtitle = sprintf("CFI=%.3f  RMSEA=%.3f  R²(donation)=%.3f",
+                         fm["cfi"], fm["rmsea"],
+                         r2["OF02_02_num_log"])
+    ) |>
+    gt::tab_spanner("Block-Interaktionen", columns=c(Endogen,Exogen,beta,SE,p,sig))
+} else {
+  message("Network-SEM did not converge.")
 }
+```
 
-# Extract factor scores from the best CFA model
-best_cfa <- if (!is.null(fit_3block)) fit_3block else fit_2block
-if (!is.null(best_cfa) && lavaan::lavInspect(best_cfa,"converged")) {
-  fs <- tryCatch(as.data.frame(lavaan::lavPredict(best_cfa)),
-                 error=function(e) NULL)
+```{r}
+#| label: network-sem-plot
+#| cache: false
+#| fig-width: 8
+#| fig-height: 6
+# Visualise the network structure with semPlot
+if (!requireNamespace("semPlot", quietly=TRUE))
+  install.packages("semPlot", repos="https://cloud.r-project.org")
 
-  if (!is.null(fs) && ncol(fs) >= 3) {
-    # Partial correlation network (EBICglasso regularisation)
-    fs_complete <- fs[complete.cases(fs),]
-    cor_mat <- cor(fs_complete, method="pearson")
-
-    # Node groups for colour-coding (BBB→BUB→BRB)
-    node_groups <- dplyr::case_when(
-      names(fs_complete) %in% c("FC_BD","FC_BC")      ~ "BBB (Building)",
-      names(fs_complete) %in% c("FC_BF","AW","FC_BR") ~ "BUB (Understanding)",
-      names(fs_complete) %in% c("BO_TR","BO_CO")      ~ "BRB (Relationship)",
-      TRUE ~ "Other"
-    )
-
-    qgraph::qgraph(cor_mat,
-      graph    = "cor",
-      layout   = "spring",
-      labels   = names(fs_complete),
-      groups   = node_groups,
-      title    = "Factor score correlation network (BBB→BUB→BRB)",
-      legend   = TRUE,
-      vsize    = 8,
-      color    = c("#0096D3","#4B2582","#002350","#80CFE9")
-    )
-  }
+if (!is.null(fit_network) && lavaan::lavInspect(fit_network,"converged")) {
+  semPlot::semPaths(
+    fit_network,
+    what       = "std",           # standardised estimates
+    whatLabels = "std",
+    style      = "ram",
+    layout     = "tree2",
+    rotation   = 2,
+    nCharNodes = 6,
+    edge.label.cex = 0.8,
+    color = list(
+      lat = c(BBB="#0096D3", BUB="#4B2582", BRB="#002350",
+              FC_BR="#80CFE9", FC_BD="#80CFE9", FC_BC="#80CFE9",
+              FC_BF="#80CFE9", AW="#80CFE9",
+              BO_TR="#80CFE9", BO_CO="#80CFE9"),
+      man = "#E8E8E8"
+    ),
+    title = "Network-SEM: BBB → BUB → BRB → Donation"
+  )
 }
 ```
 
