@@ -1,6 +1,6 @@
 ---
 title: "Exploratory FC+BO Grand Model"
-subtitle: "BBB (Building) / BUB (Understanding) / BRB (Relationship) — Chatzi framework, FC+BO items, n = 2,038"
+subtitle: "BBB → BUB → BRB (Chatzi framework) — item-level model, Faircloth + Boenigk, n = 2,038"
 date: today
 format:
   html:
@@ -169,6 +169,7 @@ so_syntax <- paste(
   fo_syntax_clean,
   "\n# Second-order blocks",
   # Build BBB dynamically from factors actually in the first-order model
+  # BBB = Brand Building Block: image, associations, differentiation (FIRST per Chatzi)
   # BUB = Brand Understanding Block: awareness, familiarity, recall
   paste0("BUB =~ FC_BF",
          if (length(aw_items) >= 2) " + AW" else "",
@@ -274,6 +275,163 @@ fit_grand <- tryCatch(
 if (!is.null(fit_grand) && lavaan::lavInspect(fit_grand, "converged"))
   print(lavaan::fitMeasures(fit_grand, c("cfi","tli","rmsea","srmr","aic","bic")))
 ```
+
+# Stage 6 — Classical SEM: BBB + BUB + BRB → Donation
+
+```{r}
+#| label: sem-classical
+#| cache: false
+# Add structural path to annual donation outcome
+if (!is.null(fit_3block) && lavaan::lavInspect(fit_3block,"converged") &&
+    "OF02_02_num_log" %in% names(dat)) {
+
+  sem_syntax <- paste(
+    lavaan::lavToList(fit_3block)$model |> lavaan::lav_partable_lavaan(),
+    "
+# Structural paths to donation",
+    "OF02_02_num_log ~ BBB + BUB + BRB",
+    sep = "
+"
+  )
+
+  # Simpler: build from scratch using fo_syntax_clean
+  sem_full <- paste(
+    fo_syntax_clean,
+    "
+# Second-order blocks (BBB -> BUB -> BRB)",
+    paste0("BUB =~ FC_BF",
+           if (length(aw_items) >= 2) " + AW" else "",
+           " + FC_BR"),
+    "BBB =~ FC_BD + FC_BC",
+    "BRB =~ BO_TR + BO_CO",
+    "
+# Structural paths",
+    "OF02_02_num_log ~ BBB + BUB + BRB",
+    sep = "
+"
+  )
+
+  fit_sem_full <- tryCatch(
+    lavaan::sem(sem_full, data = dat, estimator = "MLR",
+                missing = "fiml", std.lv = TRUE),
+    error = function(e) { message("SEM error: ", e$message); NULL })
+
+  if (!is.null(fit_sem_full) && lavaan::lavInspect(fit_sem_full,"converged")) {
+    fm <- lavaan::fitMeasures(fit_sem_full, c("cfi","tli","rmsea","srmr"))
+    message(sprintf("SEM: CFI=%.3f TLI=%.3f RMSEA=%.3f SRMR=%.3f",
+                    fm["cfi"],fm["tli"],fm["rmsea"],fm["srmr"]))
+    std <- lavaan::standardizedSolution(fit_sem_full)
+    paths <- std[std$op == "~", c("lhs","rhs","est.std","pvalue")]
+    names(paths) <- c("Outcome","Predictor","beta","p")
+    r2   <- lavaan::lavInspect(fit_sem_full, "r2")
+    r2_df <- tibble::tibble(Outcome=names(r2), R2=round(unname(r2),3))
+
+    paths |> dplyr::mutate(dplyr::across(c(beta,p),~round(.x,3))) |>
+      gt::gt() |>
+      gt::tab_header("Classical SEM: BBB + BUB + BRB → Annual Donation (MLR)",
+                     subtitle=sprintf("CFI=%.3f RMSEA=%.3f | R²=%.3f",
+                                      fm["cfi"],fm["rmsea"],
+                                      r2["OF02_02_num_log"]))
+  } else {
+    message("Classical SEM did not converge.")
+  }
+}
+```
+
+# Stage 7 — Hierarchical model: GBE → BBB → BUB → BRB → Donation
+
+```{r}
+#| label: sem-hierarchical
+#| cache: false
+hier_syntax <- paste(
+  fo_syntax_clean,
+  "
+# Second-order blocks",
+  paste0("BUB =~ FC_BF",
+         if (length(aw_items) >= 2) " + AW" else "",
+         " + FC_BR"),
+  "BBB =~ FC_BD + FC_BC",
+  "BRB =~ BO_TR + BO_CO",
+  "
+# Third-order grand brand equity",
+  "GBE =~ BBB + BUB + BRB",
+  "
+# Structural path",
+  "OF02_02_num_log ~ GBE",
+  sep = "
+"
+)
+
+fit_hier <- tryCatch(
+  lavaan::sem(hier_syntax, data = dat, estimator = "MLR",
+              missing = "fiml", std.lv = TRUE),
+  error = function(e) { message("Hierarchical SEM error: ", e$message); NULL })
+
+if (!is.null(fit_hier) && lavaan::lavInspect(fit_hier,"converged")) {
+  fm <- lavaan::fitMeasures(fit_hier, c("cfi","tli","rmsea","srmr","aic","bic"))
+  std <- lavaan::standardizedSolution(fit_hier)
+  r2  <- lavaan::lavInspect(fit_hier,"r2")
+
+  message(sprintf("Hierarchical SEM: CFI=%.3f RMSEA=%.3f R2(donation)=%.3f",
+                  fm["cfi"],fm["rmsea"],r2["OF02_02_num_log"]))
+
+  # GBE loadings
+  std[std$op=="=~" & std$lhs=="GBE", c("lhs","rhs","est.std","pvalue")] |>
+    dplyr::rename(HO=lhs,Block=rhs,lambda=est.std,p=pvalue) |>
+    dplyr::mutate(dplyr::across(c(lambda,p),~round(.x,3))) |>
+    gt::gt() |>
+    gt::tab_header("Hierarchical model: GBE third-order loadings",
+                   subtitle=sprintf("CFI=%.3f RMSEA=%.3f | GBE→Donation β=%.3f | R²=%.3f",
+                                    fm["cfi"],fm["rmsea"],
+                                    std$est.std[std$op=="~" & std$rhs=="GBE"][1],
+                                    r2["OF02_02_num_log"]))
+} else {
+  message("Hierarchical SEM did not converge.")
+}
+```
+
+# Stage 8 — Network model: partial correlation network of factor scores
+
+```{r}
+#| label: network-model
+#| cache: false
+if (!requireNamespace("qgraph", quietly=TRUE)) {
+  install.packages("qgraph", repos="https://cloud.r-project.org")
+}
+
+# Extract factor scores from the best CFA model
+best_cfa <- if (!is.null(fit_3block)) fit_3block else fit_2block
+if (!is.null(best_cfa) && lavaan::lavInspect(best_cfa,"converged")) {
+  fs <- tryCatch(as.data.frame(lavaan::lavPredict(best_cfa)),
+                 error=function(e) NULL)
+
+  if (!is.null(fs) && ncol(fs) >= 3) {
+    # Partial correlation network (EBICglasso regularisation)
+    fs_complete <- fs[complete.cases(fs),]
+    cor_mat <- cor(fs_complete, method="pearson")
+
+    # Node groups for colour-coding (BBB→BUB→BRB)
+    node_groups <- dplyr::case_when(
+      names(fs_complete) %in% c("FC_BD","FC_BC")      ~ "BBB (Building)",
+      names(fs_complete) %in% c("FC_BF","AW","FC_BR") ~ "BUB (Understanding)",
+      names(fs_complete) %in% c("BO_TR","BO_CO")      ~ "BRB (Relationship)",
+      TRUE ~ "Other"
+    )
+
+    qgraph::qgraph(cor_mat,
+      graph    = "cor",
+      layout   = "spring",
+      labels   = names(fs_complete),
+      groups   = node_groups,
+      title    = "Factor score correlation network (BBB→BUB→BRB)",
+      legend   = TRUE,
+      vsize    = 8,
+      color    = c("#0096D3","#4B2582","#002350","#80CFE9")
+    )
+  }
+}
+```
+
 
 # Session info {.unnumbered}
 ```{r}
