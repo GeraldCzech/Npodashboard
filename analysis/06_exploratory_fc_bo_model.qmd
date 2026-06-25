@@ -282,10 +282,13 @@ if (!is.null(fit_grand) && lavaan::lavInspect(fit_grand, "converged"))
 #| label: sem-classical
 #| cache: false
 # Add structural path to annual donation outcome
-if (!is.null(fit_3block) && lavaan::lavInspect(fit_3block,"converged") &&
-    "OF02_02_num_log" %in% names(dat)) {
+# Diagnostic: check state
+message("fit_3block NULL: ", is.null(fit_3block))
+message("OF02_02_num_log in dat: ", "OF02_02_num_log" %in% names(dat))
 
-  # Build directly from fo_syntax_clean (avoid internal lavaan functions)
+# Self-contained — always runs
+if ("OF02_02_num_log" %in% names(dat)) {
+
   sem_full <- paste(
     fo_syntax_clean,
     "
@@ -325,7 +328,6 @@ if (!is.null(fit_3block) && lavaan::lavInspect(fit_3block,"converged") &&
                                       r2["OF02_02_num_log"]))
   } else {
     message("Classical SEM did not converge.")
-  }
 }
 ```
 
