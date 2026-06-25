@@ -494,6 +494,70 @@ multi-group reliability/validity across donor/non-donor segments.
 # fit_cfa(cfa_fc_purified_A(),  DATASETS$fc, estimator=params$ordinal_estimator, model_id="fc_purA")
 ```
 
+# Exploratory Integration: BBB / BUB / BRB (Chatzi framework)
+
+> This section is exploratory and confined to the Faircloth + Boenigk
+> architectures (shared qnr1 sample, n = 2,038). Full analysis in
+> `analysis/06_exploratory_fc_bo_model.qmd`.
+
+```{r}
+#| label: chatzi-summary
+#| cache: false
+#| eval: true
+# Read Stage 3b comparison from CSV if available, else show static table
+chatzi_csv <- file.path(CSV_DIR, "S_chatzi_block_comparison.csv")
+if (file.exists(chatzi_csv)) {
+  readr::read_csv(chatzi_csv, show_col_types=FALSE) |>
+    gt::gt() |>
+    gt::tab_header("BBB/BUB/BRB block assignment comparison (AIC-based)",
+                   subtitle="Best: Version B — AW in BBB (ΔAIC=4 vs AW in BUB)")
+} else {
+  # Static summary from rendered 06 output
+  tibble::tibble(
+    Version = c("A: AW in BUB (Chatzi original)",
+                "B: AW in BBB (empirically preferred)",
+                "2-block (BBB+BRB, no BUB)"),
+    BUB = c("FC_BF + AW + FC_BR", "FC_BF + FC_BR", "absorbed into BBB"),
+    BBB = c("FC_BD + FC_BC", "FC_BD + FC_BC + AW", "FC_BD + FC_BC + AW + FC_BR + FC_BF"),
+    CFI   = c(.917, .917, .916),
+    RMSEA = c(.075, .075, .075),
+    AIC   = c(227493L, 227489L, 227555L)
+  ) |>
+    gt::gt() |>
+    gt::tab_header(
+      "BBB/BUB/BRB block assignment: fit comparison (FC + BO, n = 2,038)",
+      subtitle = paste0(
+        "Optimal: AW (TOM+SAW) in Brand Building Block — ΔAIC = 4 vs BUB. ",
+        "3-block outperforms 2-block by ΔAIC = 62."
+      )
+    ) |>
+    gt::fmt_number(c(CFI, RMSEA), decimals=3) |>
+    gt::fmt_integer(AIC)
+}
+```
+
+**Interpretation.** Brand awareness (TOM+SAW) is empirically better assigned to
+the Brand Building Block (BBB) than to Brand Understanding (BUB), consistent
+with the view that awareness is an *output* of brand-building activities rather
+than a passive perceptual input. The three-block structure (BBB→BUB→BRB) is
+well-supported over a two-block collapse (ΔAIC = 62), suggesting empirically
+separable brand-equity strata. The second-order loadings are:
+
+| Block | Indicator | λ | p |
+|---|---|---|---|
+| **BUB** (Understanding) | FC_BF (Familiarity) | .47 | <.001 |
+| **BUB** | AW→**BBB** in opt. | .37→loaded on BBB | — |
+| **BUB** | FC_BR (Recall) | .95 | <.001 |
+| **BBB** (Building) | FC_BD (Differentiation) | .78 | <.001 |
+| **BBB** | FC_BC (Associations) | .74 | <.001 |
+| **BRB** (Relationship) | BO_TR (Trust) | .85 | <.001 |
+| **BRB** | BO_CO (Commitment) | .71 | <.001 |
+
+Classical SEM with all three blocks as parallel predictors of annual donation
+(CFI=.916, RMSEA=.073, R²=.137): BBB→Donation β=+.920 (p<.001), BUB→Donation
+β=−.077 (ns), BRB→Donation β=−.370 (p=.021, suppressor when BBB present).
+
+
 # Session info {.unnumbered}
 
 ```{r}
