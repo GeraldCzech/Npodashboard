@@ -219,7 +219,7 @@ gt::gt(htmt_counts) |> gt::tab_header("Table S7. HTMT interpretation counts by a
 #| label: cmv-harman
 harman_tbl <- dplyr::bind_rows(
   harman_single_factor(
-    DATASETS$bo, items = unlist(construct_items_bo),
+    DATASETS$bo, items = unlist(bo_items_present),
     label = "Boenigk Core Architecture"),
   harman_single_factor(
     DATASETS$fc,
@@ -241,9 +241,9 @@ gt::gt(harman_tbl) |>
 cmv_bo <- cmv_cfa_comparison(
   trait_model = cfa_bo_original(),
   data        = DATASETS$bo,
-  items       = unlist(construct_items_bo),
+  items       = unlist(bo_items_present),
   estimator   = params$ordinal_estimator,
-  ordered     = unlist(construct_items_bo),
+  ordered     = unlist(bo_items_present),
   run_clf     = params$run_clf
 )
 save_t(cmv_bo, "S_cmv_cfa_boenigk")
@@ -298,7 +298,7 @@ inv_bo <- tryCatch(invariance_steps(
   data       = DATASETS$bo,
   group      = "OF_Spender",
   estimator  = params$ordinal_estimator,
-  ordered    = unlist(construct_items_bo)
+  ordered    = unlist(bo_items_present)
 ), error = function(e) { message("invariance-bo failed: ", e$message); NULL })
 if (!is.null(inv_bo)) save_t(inv_bo, "S_invariance_boenigk")
 gt::gt(inv_bo) |>
