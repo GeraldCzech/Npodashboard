@@ -285,16 +285,7 @@ if (!is.null(fit_grand) && lavaan::lavInspect(fit_grand, "converged"))
 if (!is.null(fit_3block) && lavaan::lavInspect(fit_3block,"converged") &&
     "OF02_02_num_log" %in% names(dat)) {
 
-  sem_syntax <- paste(
-    lavaan::lavToList(fit_3block)$model |> lavaan::lav_partable_lavaan(),
-    "
-# Structural paths to donation",
-    "OF02_02_num_log ~ BBB + BUB + BRB",
-    sep = "
-"
-  )
-
-  # Simpler: build from scratch using fo_syntax_clean
+  # Build directly from fo_syntax_clean (avoid internal lavaan functions)
   sem_full <- paste(
     fo_syntax_clean,
     "
