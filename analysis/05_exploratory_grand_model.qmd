@@ -1,6 +1,6 @@
 ---
 title: "Exploratory Grand Model (All Three Architectures)"
-subtitle: "BBB / BUB / BRB — factor scores joined by common respondents"
+subtitle: "BBB (Building) / BUB (Understanding) / BRB (Relationship) — Chatzi framework, all architectures"
 date: today
 format:
   html:
@@ -144,10 +144,14 @@ if (nrow(fs_complete) >= 30 && ncol(fs_complete) >= 3) {
 
 ```{r bbb-bub-brb}
 av <- names(fs_complete)
-BBB <- intersect(c("FC.FC_BR","FC.FC_BD","FC.FC_BF","BO.BO_BF","BO.BO_RC",
+# Chatzi framework (corrected by Chatzi feedback):
+# BUB = Brand Understanding Block: awareness, familiarity, recall
+BUB <- intersect(c("FC.FC_BR","FC.FC_BF","BO.BO_BF","BO.BO_RC",
                     "RO.RO_BF","RO.RO_BS"), av)
-BUB <- intersect(c("FC.FC_BC","FC.FC_BS","RO.RO_BI","RO.RO_BA",
-                    "RO.RO_BD","RO.RO_BR"), av)
+# BBB = Brand Building Block: image, associations, personality, differentiation
+BBB <- intersect(c("FC.FC_BD","FC.FC_BC","FC.FC_BS",
+                    "RO.RO_BI","RO.RO_BA","RO.RO_BD","RO.RO_BR"), av)
+# BRB = Brand Relationship Block: trust, commitment, identification
 BRB <- intersect(c("BO.BO_TR","BO.BO_CO","RO.RO_AC","RO.RO_EC","RO.RO_ID"), av)
 
 message("BBB(", length(BBB), "): ", paste(BBB, collapse=", "))

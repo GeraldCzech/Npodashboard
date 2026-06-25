@@ -1,6 +1,6 @@
 ---
 title: "Exploratory FC+BO Grand Model"
-subtitle: "BBB / BUB / BRB — item-level second-order model (Faircloth + Boenigk, n = 2,038)"
+subtitle: "BBB (Building) / BUB (Understanding) / BRB (Relationship) — Chatzi framework, FC+BO items, n = 2,038"
 date: today
 format:
   html:
@@ -169,12 +169,14 @@ so_syntax <- paste(
   fo_syntax_clean,
   "\n# Second-order blocks",
   # Build BBB dynamically from factors actually in the first-order model
-  paste0("BBB =~ FC_BR + FC_BD + FC_BF",
-         if (length(aw_items) >= 2) " + AW" else ""),
-  "BUB =~ FC_BC",
+  # BUB = Brand Understanding Block: awareness, familiarity, recall
+  paste0("BUB =~ FC_BF",
+         if (length(aw_items) >= 2) " + AW" else "",
+         " + FC_BR"),
+  # BBB = Brand Building Block: image, associations, differentiation
+  "BBB =~ FC_BD + FC_BC",
+  # BRB = Brand Relationship Block: trust, commitment
   "BRB =~ BO_TR + BO_CO",
-  "\n# Fix BUB residual (single indicator)",
-  "FC_BC ~~ 0.10 * FC_BC",
   sep = "\n"
 )
 
@@ -182,9 +184,10 @@ so_syntax <- paste(
 so_syntax_2block <- paste(
   fo_syntax_clean,
   "\n# Two-block solution (BBB absorbs FC_BC)",
-  paste0("BBB =~ FC_BR + FC_BD + FC_BF",
+  # 2-block: merge BUB+BBB into single brand meaning block
+  paste0("BBB =~ FC_BF",
          if (length(aw_items) >= 2) " + AW" else "",
-         " + FC_BC"),
+         " + FC_BR + FC_BD + FC_BC"),
   "BRB =~ BO_TR + BO_CO",
   sep = "\n"
 )
