@@ -194,7 +194,6 @@ cat("--- 3-block syntax ---\n", so_syntax, "\n")
 ```{r}
 #| label: so-cfa-fit
 #| cache: false
-#| cache: true
 run_so <- function(syntax, label) {
   fit <- tryCatch(
     lavaan::cfa(syntax, data = dat, estimator = "MLR",
