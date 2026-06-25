@@ -156,6 +156,7 @@ if (lavaan::lavInspect(fit_fo, "converged")) {
 
 ```{r}
 #| label: so-cfa-syntax
+#| cache: false
 # BBB — Brand Building Block:   recall, differentiation, familiarity, awareness
 # BUB — Brand Usage Block:      associations (only FC_BC available without FC_BS)
 # BRB — Brand Relationship Block: trust, commitment
@@ -169,7 +170,6 @@ so_syntax <- paste(
   "\n# Second-order blocks",
   # Build BBB dynamically from factors actually in the first-order model
   paste0("BBB =~ FC_BR + FC_BD + FC_BF",
-         if ("BO_BF" %in% gsub(" =~.*","",fo_lines)) " + BO_BF" else "",
          if (length(aw_items) >= 2) " + AW" else ""),
   "BUB =~ FC_BC",
   "BRB =~ BO_TR + BO_CO",
@@ -183,7 +183,6 @@ so_syntax_2block <- paste(
   fo_syntax_clean,
   "\n# Two-block solution (BBB absorbs FC_BC)",
   paste0("BBB =~ FC_BR + FC_BD + FC_BF",
-         if ("BO_BF" %in% trimws(gsub(" =~.*","",fo_lines))) " + BO_BF" else "",
          if (length(aw_items) >= 2) " + AW" else "",
          " + FC_BC"),
   "BRB =~ BO_TR + BO_CO",
@@ -194,6 +193,7 @@ cat("--- 3-block syntax ---\n", so_syntax, "\n")
 
 ```{r}
 #| label: so-cfa-fit
+#| cache: false
 #| cache: true
 run_so <- function(syntax, label) {
   fit <- tryCatch(
