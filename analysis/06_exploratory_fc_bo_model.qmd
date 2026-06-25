@@ -337,6 +337,7 @@ if ("OF02_02_num_log" %in% names(dat)) {
 ```{r}
 #| label: sem-hierarchical
 #| cache: false
+#| message: true
 hier_syntax <- paste(
   fo_syntax_clean,
   "
@@ -394,6 +395,7 @@ unmittelbar auf Geben wirkt.
 ```{r}
 #| label: network-sem
 #| cache: false
+#| message: true
 # Network-SEM: directed paths between second-order blocks
 # BBB → BUB → BRB → Donation (sequential chain + direct paths)
 network_syntax <- paste(
@@ -452,6 +454,7 @@ if (!is.null(fit_network) && lavaan::lavInspect(fit_network,"converged")) {
 ```{r}
 #| label: network-sem-plot
 #| cache: false
+#| message: true
 #| fig-width: 8
 #| fig-height: 6
 # Visualise the network structure with semPlot
