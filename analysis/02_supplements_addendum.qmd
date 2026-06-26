@@ -521,8 +521,6 @@ gt::gt(inv_bo) |>
 #                            ordered=unlist(construct_items_ro))
 ```
 
-# Validation overview
-
 > Run this section interactively with the live `validated` object (produced by
 > `validate_data()` inside `build_fragebogen()`), or render with
 > `rebuild_data: true` so the pipeline runs first.
@@ -676,8 +674,6 @@ reuses the same data for a measurement-defensibility comparison and is a
 >20-organisation, ~2,000-respondent design; constructive-replication logic;
 power rationale (Wolf et al., 2013); CFI/TLI/RMSEA/SRMR thresholds;
 multi-group reliability/validity across donor/non-donor segments.
-
-# Robustness
 
 ```{r}
 #| label: robustness-ses
