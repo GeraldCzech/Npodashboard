@@ -32,13 +32,22 @@ renice_rstudio() {
 }
 
 # ---------------------------------------------------------------------------
+# Optional format: ./render_all.sh html  OR  ./render_all.sh pdf  (default: both)
+FORMAT="${1:-}"
+
 render_doc() {
   local DOC="$1"
   echo "" | tee -a "$LOG"
-  echo "--- $(date '+%H:%M:%S') Rendering: $DOC ---" | tee -a "$LOG"
-  "$QUARTO" render "$DOC" >> "$LOG" 2>&1 \
-    && echo "    OK: $DOC" | tee -a "$LOG" \
-    || { echo "    FAILED: $DOC" | tee -a "$LOG"; return 1; }
+  echo "--- $(date '%H:%M:%S') Rendering: $DOC ${FORMAT:+(--to $FORMAT)} ---" | tee -a "$LOG"
+  if [ -n "$FORMAT" ]; then
+    "$QUARTO" render "$DOC" --to "$FORMAT" >> "$LOG" 2>&1 \
+      && echo "    OK: $DOC ($FORMAT)" | tee -a "$LOG" \
+      || { echo "    FAILED: $DOC" | tee -a "$LOG"; return 1; }
+  else
+    "$QUARTO" render "$DOC" >> "$LOG" 2>&1 \
+      && echo "    OK: $DOC (html+pdf)" | tee -a "$LOG" \
+      || { echo "    FAILED: $DOC" | tee -a "$LOG"; return 1; }
+  fi
 }
 
 # ---------------------------------------------------------------------------

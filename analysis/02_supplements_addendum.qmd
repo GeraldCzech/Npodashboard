@@ -27,6 +27,7 @@ execute:
   echo: true
   warning: false
   message: false
+  freeze: auto       # skip re-execution if source unchanged
 params:
   primary_estimator: "MLR"
   ordinal_estimator: "WLSMV"

@@ -29,6 +29,7 @@ execute:
   warning: false
   message: false
   cache: true        # cache expensive SEM fits
+  freeze: auto       # skip re-execution if source unchanged
 params:
   primary_estimator: "MLR"      # continuous outcomes / higher-order structural
   ordinal_estimator: "WLSMV"    # ordinal measurement models
