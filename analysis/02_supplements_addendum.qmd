@@ -127,7 +127,7 @@ tibble::tibble(
     rep("RO_BF: Brand Familiarity", 4),
     rep("RO_BS: Brand Strength", 3),
     rep("RO_BI: Brand Identification", 4),
-    rep("RO_BW: Brand Worth / Wellbeing", 4),
+    rep("RO_BW: Brand Authenticity", 4),
     rep("RO_BD: Brand Differentiation", 5),
     rep("RO_BR: Brand Reputation", 4),
     rep("RO_AC: Attitudinal Commitment", 4),
