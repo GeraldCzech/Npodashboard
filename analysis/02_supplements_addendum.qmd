@@ -681,14 +681,16 @@ multi-group reliability/validity across donor/non-donor segments.
 
 ```{r}
 #| label: robustness-ses
-#| eval: false
+#| eval: true
 # SES-adjusted structural models
 # Boenigk with SES as covariate on outcomes
 tryCatch({
   source(here::here("R", "21_fit_sem.R"))
-  ses_bo <- fit_sem(sem_bo_original(), DATASETS$bo,
+  ses_bo_raw <- fit_sem(sem_bo_original(), DATASETS$bo,
                     outcome="OF02_02_num_log", ses_mode="outcome")
-  if (!is.null(ses_bo) && lavaan::lavInspect(ses_bo,"converged")) {
+  ses_bo <- tryCatch(as_lavaan(ses_bo_raw), error=function(e) NULL)
+  if (!is.null(ses_bo) && !inherits(ses_bo, "error") &&
+      lavaan::lavInspect(ses_bo,"converged")) {
     fm <- lavaan::fitMeasures(ses_bo, c("cfi","rmsea","srmr"))
     r2  <- lavaan::lavInspect(ses_bo,"r2")[["OF02_02_num_log"]]
     message(sprintf("Boenigk SES-adjusted: CFI=%.3f RMSEA=%.3f R²=%.3f",
@@ -698,13 +700,15 @@ tryCatch({
       gt::gt() |>
       gt::tab_header("SES-adjusted Boenigk model — structural paths",
                      subtitle="Annual donation, MLR, SES as outcome covariate")
+  } else {
+    message("Boenigk SES model: not converged or error — skipping display")
   }
 }, error=function(e) message("SES model error: ", e$message))
 ```
 
 ```{r}
 #| label: robustness-alt-structures
-#| eval: false
+#| eval: true
 # Alternative Faircloth structures: Core B and Purified A
 tryCatch({
   for (spec in list(

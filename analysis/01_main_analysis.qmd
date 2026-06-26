@@ -219,98 +219,103 @@ gt::gt(sem_fit_tbl) |> gt::tab_header("Structural model global fit (CFI/TLI/RMSE
 ```{r}
 #| label: donor-or
 #| cache: true
-# Compute OR via MLR (avoids lavPredict/WLSMV compatibility issues)
-get_or <- function(syntax, data, be_name, label) {
-  # Remove items not in data before fitting
-  safe_syntax <- tryCatch({
-    obs <- unique(c(lavaan::lavNames(lavaan::lavaanify(syntax), "ov.x"),
-                    lavaan::lavNames(lavaan::lavaanify(syntax), "ov")))
-    missing_obs <- setdiff(obs, names(data))
-    if (length(missing_obs)>0) {
-      message(label,": removing absent items: ", paste(missing_obs,collapse=","))
-      for (mi in missing_obs) {
-        syntax <- gsub(paste0("\\+?\\s*",mi,"\\s*\\+?")," + ",syntax)
-        syntax <- gsub("=~\\s*\\+","=~",syntax)
-        syntax <- gsub("\\+\\s*\n","\n",syntax)
-      }
-    }
-    syntax
-  }, error=function(e) syntax)
+# Compute OR via MLR factor scores -> logistic regression on OF_Spender (binary).
+# Uses fit_cfa() (project wrapper) to avoid item-removal regex issues, and
+# lavPredict(type = "lv") to retrieve all latent variables including higher-order BE.
 
-  fit <- tryCatch(
-    lavaan::cfa(safe_syntax, data=data, estimator="MLR",
-                missing="fiml", std.lv=TRUE),
-    error=function(e) { message(label," CFA error: ",e$message); NULL })
-  if (is.null(fit) || !lavaan::lavInspect(fit,"converged")) {
-    message(label,": CFA did not converge"); return(NULL)
+get_or <- function(syntax_fn, data, be_name, label) {
+  # Use project fit_cfa wrapper — handles estimator/ordered/missing internally
+  fit_obj <- tryCatch(
+    fit_cfa(syntax_fn(), data = data, estimator = "MLR",
+            model_id = paste0("or_", tolower(gsub("[^a-z0-9]", "", label)))),
+    error = function(e) { message(label, " fit_cfa error: ", e$message); NULL })
+
+  fit <- tryCatch(as_lavaan(fit_obj),
+                  error = function(e) { message(label, " as_lavaan: ", e$message); NULL })
+
+  if (is.null(fit) || !lavaan::lavInspect(fit, "converged")) {
+    message(label, ": CFA did not converge"); return(NULL)
   }
-  fs <- tryCatch(as.data.frame(lavaan::lavPredict(fit)),
-                 error=function(e) { message(label," lavPredict: ",e$message); NULL })
-  if (is.null(fs)) return(NULL)
-  message(label," lavPredict cols: ", paste(names(fs),collapse=", "))
 
-  # Find higher-order brand equity column
-  candidates <- c(be_name, grep("_BE$|^BE$", names(fs), value=TRUE))
-  be_col <- intersect(candidates, names(fs))
-  be <- if (length(be_col)>0) fs[[be_col[1]]] else {
-    if (ncol(fs)>1) tryCatch(
-      as.numeric(prcomp(scale(na.omit(fs)))$x[,1]),
-      error=function(e) rowMeans(scale(fs), na.rm=TRUE))
-    else fs[[1]]
+  # Request ALL latent variable scores (first-order + higher-order)
+  fs <- tryCatch(
+    as.data.frame(lavaan::lavPredict(fit, type = "lv")),
+    error = function(e) { message(label, " lavPredict: ", e$message); NULL })
+  if (is.null(fs) || ncol(fs) == 0) { message(label, ": lavPredict returned empty"); return(NULL) }
+  message(label, " lavPredict cols: ", paste(names(fs), collapse = ", "))
+
+  # Locate higher-order brand equity score
+  candidates <- c(be_name, grep("_BE$|^BE$", names(fs), value = TRUE))
+  be_col     <- intersect(candidates, names(fs))
+  be <- if (length(be_col) > 0) {
+    fs[[be_col[1]]]
+  } else {
+    message(label, ": BE col not found, using PC1 of all factor scores")
+    tryCatch(
+      as.numeric(prcomp(scale(as.matrix(fs[complete.cases(fs), ])))$x[, 1]),
+      error = function(e) rowMeans(scale(fs), na.rm = TRUE))
   }
-  if (is.null(be) || all(is.na(be))) { message(label,": no BE scores"); return(NULL) }
+  if (all(is.na(be))) { message(label, ": all BE scores NA"); return(NULL) }
 
-  d <- data; d$be_z <- as.numeric(scale(be))
+  d      <- data
+  d$be_z <- as.numeric(scale(be))
 
-  # Robust donor variable extraction — prefer binary version
-  raw <- if ("OF_Spender_bin" %in% names(d)) d[["OF_Spender_bin"]]
-         else tryCatch(d[["OF_Spender"]], error=function(e) NULL)
-  if (is.null(raw)) { message(label,": no donor variable found"); return(NULL) }
-  d$donor <- if (is.logical(raw))  as.integer(raw)
-        else if (is.factor(raw)) { lvls=levels(raw)
+  # Robust donor variable: prefer OF_Spender (already 0/1 integer from pipeline)
+  raw <- if ("OF_Spender" %in% names(d))     d[["OF_Spender"]]
+    else if ("OF_Spender_bin" %in% names(d)) d[["OF_Spender_bin"]]
+    else { message(label, ": no donor variable found"); return(NULL) }
+
+  d$donor <- if (is.logical(raw)) as.integer(raw)
+        else if (is.factor(raw)) {
+          lvls <- levels(raw)
           if (all(lvls %in% c("0","1"))) as.integer(as.character(raw))
-          else as.integer(raw)-1L }
-        else suppressWarnings(as.integer(as.character(raw)))
-  message(label," donor: ", sum(!is.na(d$donor))," non-NA, ",
-          sum(d$donor==1,na.rm=TRUE)," donors")
-  if (sum(!is.na(d$donor))<10 || length(unique(na.omit(d$donor)))<2) return(NULL)
+          else as.integer(raw) - 1L
+        } else suppressWarnings(as.integer(as.character(raw)))
 
-  m0 <- glm(donor~1,    data=d, family=binomial())
-  m1 <- glm(donor~be_z, data=d, family=binomial())
-  or <- exp(coef(m1)["be_z"])
-  ci <- tryCatch(exp(confint(m1)["be_z",]),
-         error=function(e) exp(coef(m1)["be_z"]+c(-1,1)*1.96*
-                               summary(m1)$coef["be_z","Std. Error"]))
-  nobs <- stats::nobs(m1)
+  message(label, " donor: ", sum(!is.na(d$donor)), " non-NA, ",
+          sum(d$donor == 1, na.rm = TRUE), " donors")
+
+  if (sum(!is.na(d$donor)) < 10 || length(unique(na.omit(d$donor))) < 2) {
+    message(label, ": insufficient donor variance — skipping"); return(NULL)
+  }
+
+  # Complete cases for GLM (be_z and donor both non-NA)
+  glm_dat <- d[!is.na(d$be_z) & !is.na(d$donor), ]
+  m0  <- glm(donor ~ 1,     data = glm_dat, family = binomial())
+  m1  <- glm(donor ~ be_z,  data = glm_dat, family = binomial())
+  or  <- exp(coef(m1)["be_z"])
+  ci  <- tryCatch(
+    exp(confint(m1)["be_z", ]),
+    error = function(e) exp(coef(m1)["be_z"] + c(-1, 1) * 1.96 *
+                              summary(m1)$coef["be_z", "Std. Error"]))
   tibble::tibble(
-    Architecture = label,
-    OR=round(or,3), `95% CI low`=round(ci[1],3), `95% CI high`=round(ci[2],3),
-    `McFadden R²`=round(1-as.numeric(logLik(m1)/logLik(m0)),3),
-    n=nobs)
+    Architecture  = label,
+    OR            = round(or, 3),
+    `95% CI low`  = round(ci[1], 3),
+    `95% CI high` = round(ci[2], 3),
+    `McFadden R2` = round(1 - as.numeric(logLik(m1) / logLik(m0)), 3),
+    n             = stats::nobs(m1))
 }
 
 donor_or_tbl <- dplyr::bind_rows(
-  get_or(cfa_fc_higher_order_original(), DATASETS$fc, "FC_BE", "Faircloth"),
-  get_or(cfa_bo_original(),              DATASETS$bo, "BO_BE", "Boenigk & Becker"),
-  get_or(cfa_ro_original(),              DATASETS$ro, "RO_BE", "Ríos Romero et al.")
+  get_or(cfa_fc_higher_order_original, DATASETS$fc, "FC_BE", "Faircloth"),
+  get_or(cfa_bo_original,              DATASETS$bo, "BO_BE", "Boenigk & Becker"),
+  get_or(cfa_ro_original,              DATASETS$ro, "RO_BE", "Rios Romero et al.")
 )
 
-if (nrow(donor_or_tbl)>0) {
+if (nrow(donor_or_tbl) > 0) {
   save_table(donor_or_tbl, "paper_table_donor_or")
   gt::gt(donor_or_tbl) |>
-    gt::tab_header("Donor status: OR per +1 SD brand equity + pseudo-R²",
-                   subtitle="MLR factor scores → logistic regression on OF_Spender") |>
-    gt::fmt_number(c(OR,`95% CI low`,`95% CI high`,`McFadden R²`), decimals=3)
+    gt::tab_header("Donor status: OR per +1 SD brand equity + pseudo-R2",
+                   subtitle = "MLR factor scores (lavPredict type='lv') -> logistic on OF_Spender") |>
+    gt::fmt_number(c(OR, `95% CI low`, `95% CI high`, `McFadden R2`), decimals = 3)
 } else {
-  message("OR table: no results — check OF_Spender variable and CFA convergence")
-  cat("Available DATASETS$bo columns matching OF_Spender:\n")
-  print(grep("OF_Spender|Spender|donor", names(DATASETS$bo), value=TRUE, ignore.case=TRUE))
+  message("OR table: no results — see diagnostic messages above")
+  cat("Available DATASETS$bo columns matching 'Spender':\n")
+  print(grep("OF_Spender|Spender|donor", names(DATASETS$bo), value = TRUE, ignore.case = TRUE))
+  cat("Available DATASETS$fc columns matching 'Spender':\n")
+  print(grep("OF_Spender|Spender|donor", names(DATASETS$fc), value = TRUE, ignore.case = TRUE))
 }
-```
-
-
-# Session info {.unnumbered}
-
 ```{r}
 #| label: sessioninfo
 sessionInfo()
