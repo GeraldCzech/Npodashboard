@@ -218,7 +218,8 @@ gt::gt(sem_fit_tbl) |> gt::tab_header("Structural model global fit (CFI/TLI/RMSE
 
 ```{r}
 #| label: donor-or
-#| cache: true
+#| cache: false
+#| message: true
 # Compute OR via MLR factor scores -> logistic regression on OF_Spender (binary).
 # Uses fit_cfa() (project wrapper) to avoid item-removal regex issues, and
 # lavPredict(type = "lv") to retrieve all latent variables including higher-order BE.
@@ -240,22 +241,26 @@ get_or <- function(syntax_fn, data, be_name, label) {
   # Request ALL latent variable scores (first-order + higher-order)
   fs <- tryCatch(
     as.data.frame(lavaan::lavPredict(fit, type = "lv")),
-    error = function(e) { message(label, " lavPredict: ", e$message); NULL })
-  if (is.null(fs) || ncol(fs) == 0) { message(label, ": lavPredict returned empty"); return(NULL) }
-  message(label, " lavPredict cols: ", paste(names(fs), collapse = ", "))
+    error = function(e) { cat(label, "lavPredict ERROR:", e$message, "\n"); NULL })
+  if (is.null(fs) || ncol(fs) == 0) {
+    cat(label, ": lavPredict returned empty\n"); return(NULL)
+  }
+  cat(label, "lavPredict cols:", paste(names(fs), collapse = ", "), "\n")
 
   # Locate higher-order brand equity score
   candidates <- c(be_name, grep("_BE$|^BE$", names(fs), value = TRUE))
   be_col     <- intersect(candidates, names(fs))
+  cat(label, "BE candidates:", paste(candidates, collapse=", "),
+      "| found:", paste(be_col, collapse=", "), "\n")
   be <- if (length(be_col) > 0) {
     fs[[be_col[1]]]
   } else {
-    message(label, ": BE col not found, using PC1 of all factor scores")
+    cat(label, ": BE col not found — using PC1 of", ncol(fs), "factor scores\n")
     tryCatch(
       as.numeric(prcomp(scale(as.matrix(fs[complete.cases(fs), ])))$x[, 1]),
       error = function(e) rowMeans(scale(fs), na.rm = TRUE))
   }
-  if (all(is.na(be))) { message(label, ": all BE scores NA"); return(NULL) }
+  if (all(is.na(be))) { cat(label, ": all BE scores NA\n"); return(NULL) }
 
   d      <- data
   d$be_z <- as.numeric(scale(be))
@@ -272,11 +277,11 @@ get_or <- function(syntax_fn, data, be_name, label) {
           else as.integer(raw) - 1L
         } else suppressWarnings(as.integer(as.character(raw)))
 
-  message(label, " donor: ", sum(!is.na(d$donor)), " non-NA, ",
-          sum(d$donor == 1, na.rm = TRUE), " donors")
+  cat(label, "donor:", sum(!is.na(d$donor)), "non-NA,",
+      sum(d$donor == 1, na.rm = TRUE), "donors\n")
 
   if (sum(!is.na(d$donor)) < 10 || length(unique(na.omit(d$donor))) < 2) {
-    message(label, ": insufficient donor variance — skipping"); return(NULL)
+    cat(label, ": insufficient donor variance — skipping\n"); return(NULL)
   }
 
   # Complete cases for GLM (be_z and donor both non-NA)
