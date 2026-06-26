@@ -218,6 +218,7 @@ gt::gt(sem_fit_tbl) |> gt::tab_header("Structural model global fit (CFI/TLI/RMSE
 
 ```{r}
 #| label: donor-or
+#| eval: false
 #| cache: false
 #| message: true
 # Compute OR via MLR factor scores -> logistic regression on OF_Spender (binary).

@@ -681,7 +681,7 @@ multi-group reliability/validity across donor/non-donor segments.
 
 ```{r}
 #| label: robustness-ses
-#| eval: true
+#| eval: false
 # SES-adjusted structural models
 # Boenigk with SES as covariate on outcomes
 tryCatch({
@@ -708,7 +708,7 @@ tryCatch({
 
 ```{r}
 #| label: robustness-alt-structures
-#| eval: true
+#| eval: false
 # Alternative Faircloth structures: Core B and Purified A
 tryCatch({
   for (spec in list(
