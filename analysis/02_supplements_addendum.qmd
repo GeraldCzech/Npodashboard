@@ -117,7 +117,7 @@ tibble::tibble(
     rep("FC_BD: Brand Differentiation", 3),
     rep("FC_BC: Brand Commitment", 8),
     rep("FC_BF: Brand Familiarity", 3),
-    rep("FC_RC: Brand Recall (TOM + SAW)", 1),
+    rep("FC_BR: Brand Recall (TOM + SAW)", 1),
     # Boenigk
     rep("BO_TR: Brand Trust", 3),
     rep("BO_CO: Brand Commitment", 3),
