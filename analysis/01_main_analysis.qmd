@@ -225,9 +225,17 @@ gt::gt(sem_fit_tbl) |> gt::tab_header("Structural model global fit (CFI/TLI/RMSE
 # lavPredict(type = "lv") to retrieve all latent variables including higher-order BE.
 
 get_or <- function(syntax_fn, data, be_name, label) {
+  # Coerce data: strip ordered attributes from Likert items so MLR + lavPredict work
+  # lavPredict fails on 'avector' (ordered factor) columns under MLR
+  data_num <- as.data.frame(lapply(data, function(x) {
+    if (is.ordered(x) || is.factor(x)) return(as.numeric(as.character(x)))
+    x
+  }))
+  if (exists("coerce_sem_data", mode = "function")) data_num <- coerce_sem_data(data_num)
+
   # Use project fit_cfa wrapper — handles estimator/ordered/missing internally
   fit_obj <- tryCatch(
-    fit_cfa(syntax_fn(), data = data, estimator = "MLR",
+    fit_cfa(syntax_fn(), data = data_num, estimator = "MLR",
             model_id = paste0("or_", tolower(gsub("[^a-z0-9]", "", label)))),
     error = function(e) { message(label, " fit_cfa error: ", e$message); NULL })
 
@@ -262,12 +270,12 @@ get_or <- function(syntax_fn, data, be_name, label) {
   }
   if (all(is.na(be))) { cat(label, ": all BE scores NA\n"); return(NULL) }
 
-  d      <- data
+  d      <- data_num
   d$be_z <- as.numeric(scale(be))
 
   # Robust donor variable: prefer OF_Spender (already 0/1 integer from pipeline)
-  raw <- if ("OF_Spender" %in% names(d))     d[["OF_Spender"]]
-    else if ("OF_Spender_bin" %in% names(d)) d[["OF_Spender_bin"]]
+  raw <- if ("OF_Spender" %in% names(data))     data[["OF_Spender"]]
+    else if ("OF_Spender_bin" %in% names(data)) data[["OF_Spender_bin"]]
     else { message(label, ": no donor variable found"); return(NULL) }
 
   d$donor <- if (is.logical(raw)) as.integer(raw)
