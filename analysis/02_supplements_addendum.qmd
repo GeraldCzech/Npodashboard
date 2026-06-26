@@ -16,6 +16,13 @@ format:
     papersize: a4
     geometry: margin=2.5cm
     keep-tex: false
+    include-in-header:
+      text: |
+        \usepackage{booktabs}
+        \usepackage{longtable}
+        \usepackage{array}
+        \usepackage{caption}
+        \captionsetup[table]{skip=4pt}
 execute:
   echo: true
   warning: false
@@ -39,6 +46,25 @@ source(here::here("R", "31_diagnostics_cmv.R"))
 source(here::here("R", "32_diagnostics_icc.R"))
 source(here::here("R", "33_invariance.R"))
 source(here::here("R", "40_tables.R"))
+
+# PDF-safe gt: auto-scale all tables to text width when rendering to PDF
+if (knitr::is_latex_output()) {
+  # Monkey-patch gt::gt to always add table.width = pct(100) for PDF
+  local({
+    orig_gt <- gt::gt
+    gt_pdf_safe <- function(...) {
+      tbl <- orig_gt(...)
+      tbl <- gt::tab_options(tbl,
+        table.width            = gt::pct(100),
+        table.font.size        = gt::px(9),
+        column_labels.font.size = gt::px(9),
+        data_row.padding       = gt::px(2))
+      tbl
+    }
+    # Override in gt namespace so all downstream calls are caught
+    try(assignInNamespace("gt", gt_pdf_safe, ns = "gt"), silent = TRUE)
+  })
+}
 
 # Pipeline reference data (org_synonyme, fields, skalen, skalen_SEM, source_links)
 source(here::here("R", "pipeline", "external_Sources.R"))

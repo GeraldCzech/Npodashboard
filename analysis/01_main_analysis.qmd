@@ -17,6 +17,13 @@ format:
     papersize: a4
     geometry: margin=2.5cm
     keep-tex: false
+    include-in-header:
+      text: |
+        \usepackage{booktabs}
+        \usepackage{longtable}
+        \usepackage{array}
+        \usepackage{caption}
+        \captionsetup[table]{skip=4pt}
 execute:
   echo: false       # clean output for submission; set true to see code
   warning: false
@@ -43,6 +50,25 @@ source(here::here("R", "11_fit_helpers.R"))   # SEM_REGISTRY, coerce_sem_data(),
 source(here::here("R", "20_fit_cfa.R"))
 source(here::here("R", "21_fit_sem.R"))
 source(here::here("R", "40_tables.R"))
+
+# PDF-safe gt: auto-scale all tables to text width when rendering to PDF
+if (knitr::is_latex_output()) {
+  # Monkey-patch gt::gt to always add table.width = pct(100) for PDF
+  local({
+    orig_gt <- gt::gt
+    gt_pdf_safe <- function(...) {
+      tbl <- orig_gt(...)
+      tbl <- gt::tab_options(tbl,
+        table.width            = gt::pct(100),
+        table.font.size        = gt::px(9),
+        column_labels.font.size = gt::px(9),
+        data_row.padding       = gt::px(2))
+      tbl
+    }
+    # Override in gt namespace so all downstream calls are caught
+    try(assignInNamespace("gt", gt_pdf_safe, ns = "gt"), silent = TRUE)
+  })
+}
 
 # Reproducible context-source selection (avoid heuristic; see R/10_datasets.R)
 # SEM_DEBUG_CONTEXT_SOURCE_NAME <- "fragebogen$qnr1"
