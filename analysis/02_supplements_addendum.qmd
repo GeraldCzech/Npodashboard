@@ -11,7 +11,11 @@ format:
     embed-resources: true
   pdf:
     toc: true
+    toc-depth: 3
     number-sections: true
+    papersize: a4
+    geometry: margin=2.5cm
+    keep-tex: false
 execute:
   echo: true
   warning: false
