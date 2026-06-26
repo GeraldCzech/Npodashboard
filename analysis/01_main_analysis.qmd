@@ -51,17 +51,22 @@ source(here::here("R", "20_fit_cfa.R"))
 source(here::here("R", "21_fit_sem.R"))
 source(here::here("R", "40_tables.R"))
 
-# PDF-safe gt: override knitr's print method for gt objects
-if (knitr::is_latex_output()) {
-  knit_print.gt_tbl <- function(x, ...) {
-    x <- gt::tab_options(x,
-      table.width             = gt::pct(100),
-      table.font.size         = gt::px(9),
-      column_labels.font.size = gt::px(9),
-      data_row.padding        = gt::px(2))
-    knitr::knit_print(gt::as_latex(x), ...)
+# PDF-safe table helper: kable for LaTeX, gt for HTML
+print_tbl <- function(df, title = NULL, subtitle = NULL, digits = 3) {
+  if (knitr::is_latex_output()) {
+    cap <- if (!is.null(title)) title else ""
+    out <- knitr::kable(df, digits = digits, caption = cap,
+                 format = "latex", booktabs = TRUE,
+                 linesep = "") |>
+      kableExtra::kable_styling(
+        latex_options = c("scale_down", "hold_position"),
+        font_size = 8)
+    knitr::asis_output(as.character(out))
+  } else {
+    tbl <- gt::gt(df)
+    if (!is.null(title)) tbl <- gt::tab_header(tbl, title = title, subtitle = subtitle)
+    tbl
   }
-  registerS3method("knit_print", "gt_tbl", knit_print.gt_tbl)
 }
 
 # Reproducible context-source selection (avoid heuristic; see R/10_datasets.R)
@@ -102,7 +107,7 @@ Datasets in `DATASETS`: `fc`, `bo`, `ro`, `cross`. Outcomes:
 #| label: dataset-audit
 audit <- readr::read_csv(file.path(CSV_DIR, "01_dataset_audit.csv"),
                          show_col_types = FALSE)
-gt::gt(audit) |> gt::tab_header("Dataset registry audit")
+print_tbl(audit, title = "Dataset registry audit")
 ```
 
 # Confirmatory factor analysis
@@ -122,7 +127,7 @@ cfa_fit_tbl <- purrr::imap_dfr(cfa_specs, function(s, id) {
   tidy_fit(fit, model_id = id, estimator = params$ordinal_estimator)
 })
 save_table(cfa_fit_tbl, "paper_table_cfa_fit")
-gt_fit_summary(cfa_fit_tbl, "CFA fit by architecture")
+print_tbl(cfa_fit_tbl, title = "CFA fit by architecture")
 ```
 
 ## Sample sizes by analytical stage
@@ -142,12 +147,9 @@ tibble::tibble(
                              "Sensitivity basis",
                              "Identical-case sensitivity test")
 ) |>
-  gt::gt() |>
-  gt::tab_header(
-    "Table 2. Sample sizes across analytical stages",
+  print_tbl(title = "Table 2. Sample sizes across analytical stages",
     subtitle = paste0("1,571 respondents in total. ",
-                      "Common-case = identical-case sensitivity test, not cross-validation.")
-  )
+                      "Common-case = identical-case sensitivity test, not cross-validation."))
 ```
 
 
@@ -193,11 +195,9 @@ sem_r2_tbl <- purrr::imap_dfr(sem_specs, function(s, id) {
   })
 })
 save_table(sem_r2_tbl, "paper_table_structural_paths_r2")
-gt::gt(sem_r2_tbl) |>
-  gt::tab_header(
-    "Structural paths and R² — continuous outcomes, MLR (model-specific samples)",
-    subtitle = "Binary donor status (OF_Spender, WLSMV/probit): see 03_bootstrap_results.qmd"
-  )
+print_tbl(sem_r2_tbl,
+  title    = "Structural paths and R\u00b2 \u2014 continuous outcomes, MLR (model-specific samples)",
+  subtitle = "Binary donor status (OF_Spender, WLSMV/probit): see 03_bootstrap_results.qmd")
 ```
 
 > **Note on Faircloth beta sign.** The negative standardised path
@@ -238,7 +238,7 @@ sem_fit_tbl <- purrr::imap_dfr(sem_specs, function(s, id) {
   })
 }) |> dplyr::mutate(dplyr::across(c(CFI,TLI,RMSEA,SRMR), \(x) round(x, 3)))
 save_table(sem_fit_tbl, "paper_table_sem_fit")
-gt::gt(sem_fit_tbl) |> gt::tab_header("Structural model global fit (CFI/TLI/RMSEA/SRMR)")
+print_tbl(sem_fit_tbl, title = "Structural model global fit (CFI/TLI/RMSEA/SRMR)")
 ```
 
 ```{r}

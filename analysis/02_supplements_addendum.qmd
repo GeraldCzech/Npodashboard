@@ -47,17 +47,21 @@ source(here::here("R", "32_diagnostics_icc.R"))
 source(here::here("R", "33_invariance.R"))
 source(here::here("R", "40_tables.R"))
 
-# PDF-safe gt: override knitr's print method for gt objects
-if (knitr::is_latex_output()) {
-  knit_print.gt_tbl <- function(x, ...) {
-    x <- gt::tab_options(x,
-      table.width             = gt::pct(100),
-      table.font.size         = gt::px(9),
-      column_labels.font.size = gt::px(9),
-      data_row.padding        = gt::px(2))
-    knitr::knit_print(gt::as_latex(x), ...)
+# PDF-safe table helper: kable for LaTeX, gt for HTML
+print_tbl <- function(df, title = NULL, subtitle = NULL, digits = 3) {
+  if (knitr::is_latex_output()) {
+    cap <- if (!is.null(title)) title else ""
+    knitr::kable(df, digits = digits, caption = cap,
+                 format = "latex", booktabs = TRUE,
+                 linesep = "") |>
+      kableExtra::kable_styling(
+        latex_options = c("scale_down", "hold_position"),
+        font_size = 8)
+  } else {
+    tbl <- gt::gt(df)
+    if (!is.null(title)) tbl <- gt::tab_header(tbl, title = title, subtitle = subtitle)
+    tbl
   }
-  registerS3method("knit_print", "gt_tbl", knit_print.gt_tbl)
 }
 
 # Pipeline reference data (org_synonyme, fields, skalen, skalen_SEM, source_links)
@@ -118,6 +122,26 @@ save_t <- function(t, n) {
   readr::write_csv(t, file.path(CSV_DIR, paste0(n, ".csv")), na=""); t
 }
 ```
+
+```{r}
+#| label: pdf-gt-hook
+#| include: false
+# Register knit_print override for gt objects when rendering to PDF
+if (knitr::is_latex_output()) {
+  knit_print.gt_tbl <- function(x, ...) {
+    x <- gt::tab_options(x,
+      table.width             = gt::pct(100),
+      table.font.size         = gt::px(8),
+      column_labels.font.size = gt::px(8),
+      data_row.padding        = gt::px(1))
+    latex_out <- gt::as_latex(x)
+    knitr::asis_output(as.character(latex_out))
+  }
+  registerS3method("knit_print", "gt_tbl", knit_print.gt_tbl,
+                   envir = asNamespace("knitr"))
+}
+```
+
 
 # Item wording, source mappings and model syntax {#sec-items}
 
