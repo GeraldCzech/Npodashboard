@@ -95,6 +95,166 @@ save_t <- function(t, n) {
 }
 ```
 
+# Item wording, source mappings and model syntax {#sec-items}
+
+Full German item wording, recoding rules and lavaan model syntax are available
+in the research compendium at `R/12_lavaan_models.R` and `R/external_Sources.R`
+([research compendium — blinded for review]). The table below provides the
+English-language item descriptions and construct assignments.
+
+```{r}
+#| label: item-mapping
+#| cache: false
+tibble::tibble(
+  Architecture = c(
+    rep("Faircloth (2005)", 18),
+    rep("Boenigk & Becker (2016)", 8),
+    rep("Rios Romero et al. (2023)", 35)
+  ),
+  Construct = c(
+    # Faircloth
+    rep("FC_BR: Brand Recall / Recognition", 3),
+    rep("FC_BD: Brand Differentiation", 3),
+    rep("FC_BC: Brand Connections / Image", 8),
+    rep("FC_BF: Brand Familiarity", 3),
+    rep("AW: Brand Awareness (TOM + SAW)", 1),
+    # Boenigk
+    rep("BO_TR: Brand Trust", 3),
+    rep("BO_CO: Brand Commitment", 3),
+    rep("AW: Brand Awareness (TOM + SAW)", 1),
+    rep("BO_BF: Brand Familiarity", 1),
+    # Romero
+    rep("RO_BF: Brand Familiarity", 4),
+    rep("RO_BS: Brand Strength / Salience", 3),
+    rep("RO_BI: Brand Image", 4),
+    rep("RO_BA: Brand Associations", 4),
+    rep("RO_BD: Brand Differentiation", 5),
+    rep("RO_BR: Brand Relevance", 4),
+    rep("RO_AC: Attitudinal Commitment", 4),
+    rep("RO_EC: Emotional Commitment", 5),
+    rep("RO_ID: Brand Identification", 7)
+  ),
+  Item = c(
+    # Faircloth FC_BR (FC01_01-03)
+    "FC01_01: I recognise [org] among other charitable organisations",
+    "FC01_02: I can recall [org] when I think of charitable organisations",
+    "FC01_03: [org] comes to mind quickly when I think of charities",
+    # FC_BD (FC01_04-06)
+    "FC01_04: [org] is clearly different from other organisations",
+    "FC01_05: [org] stands out among charitable organisations",
+    "FC01_06: [org] has a distinctive profile",
+    # FC_BC (FC02_01-08)
+    "FC02_01: [org] has a good character",
+    "FC02_02: [org] has a trustworthy character",
+    "FC02_03: [org] is socially responsible",
+    "FC02_04: [org] is a caring organisation",
+    "FC02_05: [org] has a strong personality",
+    "FC02_06: [org] projects a positive image",
+    "FC02_07: [org] makes a good impression",
+    "FC02_08: [org] has a respectable image",
+    # FC_BF (FC03_01-03)
+    "FC03_01: I am familiar with [org]",
+    "FC03_02: I know [org] well",
+    "FC03_03: I have knowledge about [org]",
+    # AW
+    "TOM/SAW: Unaided and aided awareness items (0=not heard of, ..., open recall)",
+    # Boenigk BO_TR (B101_01-03)
+    "B101_01: I trust [org]",
+    "B101_02: [org] is reliable",
+    "B101_03: [org] is honest in its dealings",
+    # BO_CO (B102_01-03)
+    "B102_01: I feel a long-term connection to [org]",
+    "B102_02: I am committed to [org]",
+    "B102_03: My relationship with [org] is important to me",
+    # AW
+    "TOM/SAW: Shared awareness items (same as Faircloth)",
+    # BO_BF (BC03_01-03 — available for organisations with brand familiarity battery)
+    "BC03: Brand familiarity scale (available for selected organisations)",
+    # Romero RO_BF (R201_01-04)
+    "R201_01: I am familiar with [org]",
+    "R201_02: I have knowledge about [org]",
+    "R201_03: I know what [org] stands for",
+    "R201_04: I am informed about [org]",
+    # RO_BS (R201_05-07)
+    "R201_05: [org] is a well-known organisation",
+    "R201_06: [org] is a leading organisation in its field",
+    "R201_07: [org] has a strong presence",
+    # RO_BI (R202_01-04)
+    "R202_01: [org] has a good image",
+    "R202_02: [org] has a positive reputation among the public",
+    "R202_03: People think well of [org]",
+    "R202_04: [org] is viewed favourably",
+    # RO_BA (R202_05-08)
+    "R202_05: [org] is associated with positive values",
+    "R202_06: [org] is linked to good causes",
+    "R202_07: [org] represents something positive",
+    "R202_08: [org] has associations I approve of",
+    # RO_BD (R203_01-05)
+    "R203_01: [org] is different from other organisations",
+    "R203_02: [org] offers something unique",
+    "R203_03: [org] is distinctive",
+    "R203_04: [org] stands out",
+    "R203_05: [org] has a unique profile",
+    # RO_BR (R203_06-09)
+    "R203_06: [org] is relevant to me",
+    "R203_07: [org] matters to people like me",
+    "R203_08: [org] addresses issues important to me",
+    "R203_09: [org] is meaningful to me personally",
+    # RO_AC (R204_01-04)
+    "R204_01: I support [org] regularly",
+    "R204_02: I am committed to [org] in the long term",
+    "R204_03: I intend to continue my relationship with [org]",
+    "R204_04: I plan to stay connected to [org]",
+    # RO_EC (R204_05-09)
+    "R204_05: I feel emotionally connected to [org]",
+    "R204_06: [org] means a lot to me",
+    "R204_07: I care about [org]",
+    "R204_08: I feel personally attached to [org]",
+    "R204_09: My relationship with [org] is emotionally significant",
+    # RO_ID (R205_01-07)
+    "R205_01: I identify with [org]",
+    "R205_02: [org] reflects who I am",
+    "R205_03: I share the values of [org]",
+    "R205_04: [org] is part of my identity",
+    "R205_05: Being associated with [org] says something about me",
+    "R205_06: I see myself in [org]",
+    "R205_07: [org] represents people like me"
+  ),
+  `Source variable` = c(
+    "FC01_01","FC01_02","FC01_03",
+    "FC01_04","FC01_05","FC01_06",
+    "FC02_01","FC02_02","FC02_03","FC02_04","FC02_05","FC02_06","FC02_07","FC02_08",
+    "FC03_01","FC03_02","FC03_03",
+    "TOM / SAW",
+    "B101_01","B101_02","B101_03",
+    "B102_01","B102_02","B102_03",
+    "TOM / SAW",
+    "BC03_01-03",
+    "R201_01","R201_02","R201_03","R201_04",
+    "R201_05","R201_06","R201_07",
+    "R202_01","R202_02","R202_03","R202_04",
+    "R202_05","R202_06","R202_07","R202_08",
+    "R203_01","R203_02","R203_03","R203_04","R203_05",
+    "R203_06","R203_07","R203_08","R203_09",
+    "R204_01","R204_02","R204_03","R204_04",
+    "R204_05","R204_06","R204_07","R204_08","R204_09",
+    "R205_01","R205_02","R205_03","R205_04","R205_05","R205_06","R205_07"
+  )
+) |>
+  gt::gt() |>
+  gt::tab_header(
+    "Item mapping: constructs, source variables and English item descriptions",
+    subtitle = paste0("Note: [org] = name of evaluated organisation. ",
+                      "Items translated from German; full German wording in research compendium. ",
+                      "Reversed items (FC02_10_rev, FC02_12_rev) recoded before analysis.")
+  ) |>
+  gt::cols_width(Architecture ~ gt::px(120), Construct ~ gt::px(180),
+                 Item ~ gt::px(280), `Source variable` ~ gt::px(90)) |>
+  gt::tab_style(style=gt::cell_text(weight="bold"),
+                locations=gt::cells_column_labels())
+```
+
+
 # Organisations and sampling frame
 
 ```{r}
