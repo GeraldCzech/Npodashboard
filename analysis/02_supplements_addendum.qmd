@@ -47,23 +47,17 @@ source(here::here("R", "32_diagnostics_icc.R"))
 source(here::here("R", "33_invariance.R"))
 source(here::here("R", "40_tables.R"))
 
-# PDF-safe gt: auto-scale all tables to text width when rendering to PDF
+# PDF-safe gt: override knitr's print method for gt objects
 if (knitr::is_latex_output()) {
-  # Monkey-patch gt::gt to always add table.width = pct(100) for PDF
-  local({
-    orig_gt <- gt::gt
-    gt_pdf_safe <- function(...) {
-      tbl <- orig_gt(...)
-      tbl <- gt::tab_options(tbl,
-        table.width            = gt::pct(100),
-        table.font.size        = gt::px(9),
-        column_labels.font.size = gt::px(9),
-        data_row.padding       = gt::px(2))
-      tbl
-    }
-    # Override in gt namespace so all downstream calls are caught
-    try(assignInNamespace("gt", gt_pdf_safe, ns = "gt"), silent = TRUE)
-  })
+  knit_print.gt_tbl <- function(x, ...) {
+    x <- gt::tab_options(x,
+      table.width             = gt::pct(100),
+      table.font.size         = gt::px(9),
+      column_labels.font.size = gt::px(9),
+      data_row.padding        = gt::px(2))
+    knitr::knit_print(gt::as_latex(x), ...)
+  }
+  registerS3method("knit_print", "gt_tbl", knit_print.gt_tbl)
 }
 
 # Pipeline reference data (org_synonyme, fields, skalen, skalen_SEM, source_links)
@@ -821,6 +815,8 @@ Classical SEM with all three blocks as parallel predictors of annual donation
 
 ```{r}
 #| label: sessioninfo
+#| eval: !expr knitr::is_latex_output() == FALSE
+#| include: !expr knitr::is_latex_output() == FALSE
 sessionInfo()
 ```
 
