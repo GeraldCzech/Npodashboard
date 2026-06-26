@@ -186,6 +186,8 @@ gt::gt(sem_r2_tbl) |>
 > comparable evidence is the identical-case analysis (see supplement §Sampling).
 > R² across non-equivalent solutions is indicative only.
 
+## SEM global fit (CFI / TLI / RMSEA / SRMR)
+
 ```{r}
 #| label: sem-global-fit
 #| cache: true
