@@ -109,7 +109,7 @@ tibble::tibble(
   Architecture = c(
     rep("Faircloth (2005)", 18),
     rep("Boenigk & Becker (2016)", 8),
-    rep("Rios Romero et al. (2023)", 35)
+    rep("Rios Romero et al. (2023)", 40)
   ),
   Construct = c(
     # Faircloth
@@ -127,7 +127,7 @@ tibble::tibble(
     rep("RO_BF: Brand Familiarity", 4),
     rep("RO_BS: Brand Strength / Salience", 3),
     rep("RO_BI: Brand Image", 4),
-    rep("RO_BA: Brand Associations", 4),
+    rep("RO_BW: Brand Worth / Wellbeing", 4),
     rep("RO_BD: Brand Differentiation", 5),
     rep("RO_BR: Brand Relevance", 4),
     rep("RO_AC: Attitudinal Commitment", 4),
