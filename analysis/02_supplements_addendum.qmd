@@ -174,10 +174,23 @@ gt::gt(audit) |> gt::tab_header("Table S3. Dataset registry audit")
 ```{r}
 #| label: icc
 #| eval: false
-# ICC for the nested structure (requires an organisation id column; add once
-# BA03_01 → organisation label join is done in the pipeline).
-# icc_crossed(DATASETS$cross, response="OF02_02_num_log",
-#             group1="REF", group2="BA03_01")
+# ICC for the cross-classified structure (respondents × organisations)
+if ("REF" %in% names(DATASETS$cross) && "BA03_01" %in% names(DATASETS$cross)) {
+  icc_result <- tryCatch(
+    icc_crossed(DATASETS$cross, response="OF02_02_num_log",
+                group1="REF", group2="BA03_01"),
+    error=function(e) { message("ICC error: ", e$message); NULL })
+  if (!is.null(icc_result)) {
+    message("ICC computed successfully")
+    print(icc_result)
+  }
+} else {
+  missing_cols <- setdiff(c("REF","BA03_01"), names(DATASETS$cross))
+  message("ICC skipped — missing columns: ", paste(missing_cols, collapse=", "))
+  message("Available group columns: ",
+          paste(grep("REF|BA03|CASE|ORG", names(DATASETS$cross), 
+                     value=TRUE, ignore.case=TRUE), collapse=", "))
+}
 ```
 
 # Discriminant validity (HTMT)
@@ -509,17 +522,45 @@ multi-group reliability/validity across donor/non-donor segments.
 ```{r}
 #| label: robustness-ses
 #| eval: false
-# SES-adjusted structural models: ses_mode = "outcome"
-# source(here::here("R", "21_fit_sem.R"))
-# fit_sem(sem_bo_original, DATASETS$bo, outcome="OF02_02_num_log", ses_mode="outcome")
+# SES-adjusted structural models
+# Boenigk with SES as covariate on outcomes
+tryCatch({
+  source(here::here("R", "21_fit_sem.R"))
+  ses_bo <- fit_sem(sem_bo_original(), DATASETS$bo,
+                    outcome="OF02_02_num_log", ses_mode="outcome")
+  if (!is.null(ses_bo) && lavaan::lavInspect(ses_bo,"converged")) {
+    fm <- lavaan::fitMeasures(ses_bo, c("cfi","rmsea","srmr"))
+    r2  <- lavaan::lavInspect(ses_bo,"r2")[["OF02_02_num_log"]]
+    message(sprintf("Boenigk SES-adjusted: CFI=%.3f RMSEA=%.3f R²=%.3f",
+                    fm["cfi"], fm["rmsea"], r2))
+    std <- lavaan::standardizedSolution(ses_bo)
+    std[std$op=="~", c("lhs","rhs","est.std","pvalue")] |>
+      gt::gt() |>
+      gt::tab_header("SES-adjusted Boenigk model — structural paths",
+                     subtitle="Annual donation, MLR, SES as outcome covariate")
+  }
+}, error=function(e) message("SES model error: ", e$message))
 ```
 
 ```{r}
 #| label: robustness-alt-structures
 #| eval: false
 # Alternative Faircloth structures: Core B and Purified A
-# fit_cfa(cfa_fc_core_B(),      DATASETS$fc, estimator=params$ordinal_estimator, model_id="fc_coreB")
-# fit_cfa(cfa_fc_purified_A(),  DATASETS$fc, estimator=params$ordinal_estimator, model_id="fc_purA")
+tryCatch({
+  for (spec in list(
+    list(fn=cfa_fc_core_B,     id="fc_coreB",  label="Faircloth Core B"),
+    list(fn=cfa_fc_purified_A, id="fc_purA",   label="Faircloth Purified A")
+  )) {
+    fit_alt <- fit_cfa(spec$fn(), DATASETS$fc,
+                       estimator=params$ordinal_estimator, model_id=spec$id)
+    fit_lav <- tryCatch(as_lavaan(fit_alt), error=function(e) NULL)
+    if (!is.null(fit_lav) && lavaan::lavInspect(fit_lav,"converged")) {
+      fm <- lavaan::fitMeasures(fit_lav, c("cfi","tli","rmsea","srmr","aic"))
+      message(sprintf("%s: CFI=%.3f TLI=%.3f RMSEA=%.3f SRMR=%.3f AIC=%.0f",
+                      spec$label, fm["cfi"],fm["tli"],fm["rmsea"],fm["srmr"],fm["aic"]))
+    }
+  }
+}, error=function(e) message("Alternative Faircloth error: ", e$message))
 ```
 
 # Exploratory Integration: BBB / BUB / BRB (Chatzi framework)

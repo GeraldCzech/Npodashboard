@@ -221,8 +221,24 @@ gt::gt(sem_fit_tbl) |> gt::tab_header("Structural model global fit (CFI/TLI/RMSE
 #| cache: true
 # Compute OR via MLR (avoids lavPredict/WLSMV compatibility issues)
 get_or <- function(syntax, data, be_name, label) {
+  # Remove items not in data before fitting
+  safe_syntax <- tryCatch({
+    obs <- unique(c(lavaan::lavNames(lavaan::lavaanify(syntax), "ov.x"),
+                    lavaan::lavNames(lavaan::lavaanify(syntax), "ov")))
+    missing_obs <- setdiff(obs, names(data))
+    if (length(missing_obs)>0) {
+      message(label,": removing absent items: ", paste(missing_obs,collapse=","))
+      for (mi in missing_obs) {
+        syntax <- gsub(paste0("\\+?\\s*",mi,"\\s*\\+?")," + ",syntax)
+        syntax <- gsub("=~\\s*\\+","=~",syntax)
+        syntax <- gsub("\\+\\s*\n","\n",syntax)
+      }
+    }
+    syntax
+  }, error=function(e) syntax)
+
   fit <- tryCatch(
-    lavaan::cfa(syntax, data=data, estimator="MLR",
+    lavaan::cfa(safe_syntax, data=data, estimator="MLR",
                 missing="fiml", std.lv=TRUE),
     error=function(e) { message(label," CFA error: ",e$message); NULL })
   if (is.null(fit) || !lavaan::lavInspect(fit,"converged")) {
@@ -246,11 +262,14 @@ get_or <- function(syntax, data, be_name, label) {
 
   d <- data; d$be_z <- as.numeric(scale(be))
 
-  # Robust donor variable extraction
-  raw <- tryCatch(d[["OF_Spender"]], error=function(e) NULL)
-  if (is.null(raw)) { message(label,": OF_Spender not found"); return(NULL) }
+  # Robust donor variable extraction — prefer binary version
+  raw <- if ("OF_Spender_bin" %in% names(d)) d[["OF_Spender_bin"]]
+         else tryCatch(d[["OF_Spender"]], error=function(e) NULL)
+  if (is.null(raw)) { message(label,": no donor variable found"); return(NULL) }
   d$donor <- if (is.logical(raw))  as.integer(raw)
-        else if (is.factor(raw))   as.integer(raw)-1L
+        else if (is.factor(raw)) { lvls=levels(raw)
+          if (all(lvls %in% c("0","1"))) as.integer(as.character(raw))
+          else as.integer(raw)-1L }
         else suppressWarnings(as.integer(as.character(raw)))
   message(label," donor: ", sum(!is.na(d$donor))," non-NA, ",
           sum(d$donor==1,na.rm=TRUE)," donors")
